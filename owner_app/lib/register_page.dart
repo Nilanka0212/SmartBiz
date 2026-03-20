@@ -1,5 +1,9 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../providers/language_provider.dart';
+import '../services/api_service.dart';
 
 class RegisterPage extends StatefulWidget {
   final AppStrings strings;
@@ -12,60 +16,120 @@ class RegisterPage extends StatefulWidget {
 class _RegisterPageState extends State<RegisterPage> {
   AppStrings get s => widget.strings;
   int _currentStep = 0;
+  bool _isLoading = false;
+  Uint8List? _profilePhotoBytes;
+  Uint8List? _shopImageBytes;
 
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
+  // Personal
+  final _nameController     = TextEditingController();
+  final _phoneController    = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  final _nicController = TextEditingController();
-  bool _profilePhotoAdded = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirm = true;
+  final _confirmController  = TextEditingController();
+  final _nicController      = TextEditingController();
+  bool _obscurePassword     = true;
+  bool _obscureConfirm      = true;
+  // File? _profilePhoto;
 
+  // Shop
   final _shopNameController = TextEditingController();
   final _locationController = TextEditingController();
   String? _selectedCategory;
-  bool _shopImageAdded = false;
+  // File? _shopImage;
 
   final _personalFormKey = GlobalKey<FormState>();
-  final _shopFormKey = GlobalKey<FormState>();
+  final _shopFormKey     = GlobalKey<FormState>();
+  final _imagePicker     = ImagePicker();
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
+    _confirmController.dispose();
     _nicController.dispose();
     _shopNameController.dispose();
     _locationController.dispose();
     super.dispose();
   }
 
+  // ── Pick image ──
+Future<void> _pickImage(bool isProfile) async {
+  try {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (picked != null) {
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        if (isProfile) {
+          _profilePhotoBytes = bytes;
+        } else {
+          _shopImageBytes = bytes;
+        }
+      });
+    }
+  } catch (e) {
+    _showError('Could not open gallery. Please try again.');
+  }
+}
+  // ── Next step ──
   void _nextStep() {
     if (_currentStep == 0) {
-      if (!_profilePhotoAdded) {
-        _showError(s.addProfilePhoto);
-        return;
-      }
       if (_personalFormKey.currentState!.validate()) {
         setState(() => _currentStep = 1);
       }
     } else {
-      if (!_shopImageAdded) {
-        _showError(s.addShopPhoto);
-        return;
-      }
       if (_shopFormKey.currentState!.validate()) {
-        _showSuccess();
+        _submitRegistration();
       }
+    }
+  }
+
+  // ── Submit to PHP API ──
+  Future<void> _submitRegistration() async {
+    setState(() => _isLoading = true);
+
+    final result = await ApiService.register(
+      name:              _nameController.text.trim(),
+      phone:             _phoneController.text.trim(),
+      nic:               _nicController.text.trim(),
+      password:          _passwordController.text.trim(),
+      shopCategory:      _selectedCategory ?? '',
+      shopLocation:      _locationController.text.trim(),
+      shopName:          _shopNameController.text.trim(),
+      language:          s.language.name,
+      profilePhotoBytes: _profilePhotoBytes,
+      profilePhotoName:  'profile.jpg',
+      shopImageBytes:    _shopImageBytes,
+      shopImageName:     'shop.jpg',
+    );
+
+    setState(() => _isLoading = false);
+
+    if (result['success'] == true) {
+      _showSuccess();
+    } else {
+      final data = result['data'];
+      String errorMsg = 'Registration failed';
+      if (data != null) {
+        if (data['errors'] != null) {
+          errorMsg = (data['errors'] as Map).values.first[0];
+        } else if (data['message'] != null) {
+          errorMsg = data['message'];
+        }
+      }
+      _showError(errorMsg);
     }
   }
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -74,19 +138,22 @@ class _RegisterPageState extends State<RegisterPage> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 70, height: 70,
-              decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
+              decoration: const BoxDecoration(
+                  color: Colors.orange, shape: BoxShape.circle),
               child: const Icon(Icons.check, color: Colors.white, size: 40),
             ),
             const SizedBox(height: 16),
             Text(s.successTitle,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
             Text(s.successMsg,
                 style: const TextStyle(color: Colors.orange)),
@@ -96,12 +163,15 @@ class _RegisterPageState extends State<RegisterPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+              onPressed: () =>
+                  Navigator.popUntil(context, (r) => r.isFirst),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
-              child: Text(s.goHome, style: const TextStyle(color: Colors.white)),
+              child: Text(s.goHome,
+                  style: const TextStyle(color: Colors.white)),
             ),
           ),
         ],
@@ -120,81 +190,112 @@ class _RegisterPageState extends State<RegisterPage> {
             style: const TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Step indicator
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 40),
-            color: Colors.orange.shade50,
-            child: Row(
-              children: [
-                _stepDot(1, s.personalDetails, _currentStep >= 0),
-                Expanded(
-                  child: Container(
-                    height: 2,
-                    color: _currentStep >= 1 ? Colors.orange : Colors.grey.shade300,
-                  ),
-                ),
-                _stepDot(2, s.shopDetails, _currentStep >= 1),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-              child: _currentStep == 0 ? _personalForm() : _shopForm(),
-            ),
-          ),
-
-          // Buttons
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, -2))],
-            ),
-            child: Row(
-              children: [
-                if (_currentStep == 1) ...[
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => setState(() => _currentStep = 0),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.orange),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+          Column(
+            children: [
+              // Step indicator
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    vertical: 16, horizontal: 40),
+                color: Colors.orange.shade50,
+                child: Row(
+                  children: [
+                    _stepDot(1, s.personalDetails, _currentStep >= 0),
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        color: _currentStep >= 1
+                            ? Colors.orange
+                            : Colors.grey.shade300,
                       ),
-                      child: Text(s.backBtn,
-                          style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton(
-                    onPressed: _nextStep,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: Text(
-                      _currentStep == 0 ? s.nextBtn : s.submitBtn,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
+                    _stepDot(2, s.shopDetails, _currentStep >= 1),
+                  ],
                 ),
-              ],
-            ),
+              ),
+
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                  child: _currentStep == 0
+                      ? _personalForm()
+                      : _shopForm(),
+                ),
+              ),
+
+              // Buttons
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 8,
+                      offset: Offset(0, -2))],
+                ),
+                child: Row(
+                  children: [
+                    if (_currentStep == 1) ...[
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _isLoading
+                              ? null
+                              : () => setState(() => _currentStep = 0),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.orange),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 14),
+                          ),
+                          child: Text(s.backBtn,
+                              style: const TextStyle(
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _nextStep,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 14),
+                        ),
+                        child: Text(
+                          _currentStep == 0 ? s.nextBtn : s.submitBtn,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
+
+          // Loading overlay
+          if (_isLoading)
+            Container(
+              color: Colors.black38,
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.orange),
+              ),
+            ),
         ],
       ),
     );
   }
 
+  // ── Personal Form ──
   Widget _personalForm() {
     return Form(
       key: _personalFormKey,
@@ -203,50 +304,79 @@ class _RegisterPageState extends State<RegisterPage> {
         children: [
           _sectionTitle(s.personalDetails),
           const SizedBox(height: 20),
+
+          // Profile photo picker
           Center(
             child: GestureDetector(
-              onTap: () => setState(() => _profilePhotoAdded = true),
+              onTap: () => _pickImage(true),
               child: Column(
                 children: [
                   Container(
-                    width: 100, height: 100,
+                    width: 110, height: 110,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _profilePhotoAdded ? Colors.orange.shade100 : Colors.grey.shade100,
+                      color: _profilePhotoBytes != null
+                          ? Colors.orange.shade50
+                          : Colors.grey.shade100,
                       border: Border.all(
-                        color: _profilePhotoAdded ? Colors.orange : Colors.grey.shade400,
+                        color: _profilePhotoBytes != null
+                            ? Colors.orange
+                            : Colors.grey.shade400,
                         width: 2,
                       ),
                     ),
-                    child: _profilePhotoAdded
-                        ? const Icon(Icons.check_circle, color: Colors.orange, size: 45)
-                        : Column(
+                    child: _profilePhotoBytes != null
+                        ? ClipOval(
+                            child: Image.memory(
+                              _profilePhotoBytes!,
+                              fit: BoxFit.cover,
+                              width: 110,
+                              height: 110,
+                            ),
+                          )
+                        : const Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.add_a_photo, color: Colors.grey, size: 28),
-                              const SizedBox(height: 4),
-                              Text(s.profilePhoto,
+                              Icon(Icons.add_a_photo,
+                                  color: Colors.grey, size: 28),
+                              SizedBox(height: 4),
+                              Text('Add Photo',
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 9, color: Colors.red)),
+                                  style: TextStyle(
+                                      fontSize: 10, color: Colors.grey)),
                             ],
                           ),
                   ),
-                  if (_profilePhotoAdded)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(s.photoAdded,
-                          style: const TextStyle(color: Colors.orange, fontSize: 12,
-                              fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Text(
+                    _profilePhotoBytes != null
+                        ? s.photoAdded
+                        : 'Tap to select photo',
+                    style: TextStyle(
+                      color: _profilePhotoBytes != null
+                          ? Colors.orange
+                          : Colors.grey,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
+                  ),
                 ],
               ),
             ),
           ),
+
           const SizedBox(height: 24),
-          _inputField(controller: _nameController, label: s.fullName, icon: Icons.person,
-              validator: (v) => v!.trim().isEmpty ? s.enterName : null),
+          _inputField(
+              controller: _nameController,
+              label: s.fullName,
+              icon: Icons.person,
+              validator: (v) =>
+                  v!.trim().isEmpty ? s.enterName : null),
           const SizedBox(height: 14),
-          _inputField(controller: _phoneController, label: s.phone, icon: Icons.phone,
+          _inputField(
+              controller: _phoneController,
+              label: s.phone,
+              icon: Icons.phone,
               keyboardType: TextInputType.phone,
               validator: (v) {
                 if (v!.trim().isEmpty) return s.enterPhone;
@@ -254,15 +384,26 @@ class _RegisterPageState extends State<RegisterPage> {
                 return null;
               }),
           const SizedBox(height: 14),
-          _inputField(controller: _nicController, label: s.nic, icon: Icons.credit_card,
-              validator: (v) => v!.trim().isEmpty ? s.enterNic : null),
+          _inputField(
+              controller: _nicController,
+              label: s.nic,
+              icon: Icons.credit_card,
+              validator: (v) =>
+                  v!.trim().isEmpty ? s.enterNic : null),
           const SizedBox(height: 14),
-          _inputField(controller: _passwordController, label: s.password, icon: Icons.lock,
+          _inputField(
+              controller: _passwordController,
+              label: s.password,
+              icon: Icons.lock,
               obscureText: _obscurePassword,
               suffixIcon: IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility,
+                icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_off
+                        : Icons.visibility,
                     color: Colors.grey),
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                onPressed: () => setState(
+                    () => _obscurePassword = !_obscurePassword),
               ),
               validator: (v) {
                 if (v!.trim().isEmpty) return s.enterPassword;
@@ -270,16 +411,25 @@ class _RegisterPageState extends State<RegisterPage> {
                 return null;
               }),
           const SizedBox(height: 14),
-          _inputField(controller: _confirmPasswordController, label: s.confirmPassword,
-              icon: Icons.lock_outline, obscureText: _obscureConfirm,
+          _inputField(
+              controller: _confirmController,
+              label: s.confirmPassword,
+              icon: Icons.lock_outline,
+              obscureText: _obscureConfirm,
               suffixIcon: IconButton(
-                icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                icon: Icon(
+                    _obscureConfirm
+                        ? Icons.visibility_off
+                        : Icons.visibility,
                     color: Colors.grey),
-                onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                onPressed: () => setState(
+                    () => _obscureConfirm = !_obscureConfirm),
               ),
               validator: (v) {
                 if (v!.trim().isEmpty) return s.confirmPasswordError;
-                if (v.trim() != _passwordController.text.trim()) return s.passwordMismatch;
+                if (v.trim() != _passwordController.text.trim()) {
+                  return s.passwordMismatch;
+                }
                 return null;
               }),
           const SizedBox(height: 20),
@@ -288,6 +438,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  // ── Shop Form ──
   Widget _shopForm() {
     return Form(
       key: _shopFormKey,
@@ -296,95 +447,142 @@ class _RegisterPageState extends State<RegisterPage> {
         children: [
           _sectionTitle(s.shopDetails),
           const SizedBox(height: 20),
+
+          // Shop image picker
           Center(
             child: GestureDetector(
-              onTap: () => setState(() => _shopImageAdded = true),
+              onTap: () => _pickImage(false),
               child: Column(
                 children: [
                   Container(
-                    width: 160, height: 110,
+                    width: 200, height: 130,
                     decoration: BoxDecoration(
-                      color: _shopImageAdded ? Colors.orange.shade100 : Colors.grey.shade100,
+                      color: _shopImageBytes != null
+                          ? Colors.orange.shade50
+                          : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: _shopImageAdded ? Colors.orange : Colors.grey.shade400,
+                        color: _shopImageBytes != null
+                            ? Colors.orange
+                            : Colors.grey.shade400,
                         width: 2,
                       ),
                     ),
-                    child: _shopImageAdded
-                        ? const Icon(Icons.check_circle, color: Colors.orange, size: 45)
-                        : Column(
+                    child: _shopImageBytes != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.memory(
+                              _shopImageBytes!,
+                              fit: BoxFit.cover,
+                              width: 200,
+                              height: 130,
+                            ),
+                          )
+                        : const Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.add_photo_alternate, color: Colors.grey, size: 32),
-                              const SizedBox(height: 6),
-                              Text(s.shopImage,
-                                  style: const TextStyle(fontSize: 11, color: Colors.red)),
+                              Icon(Icons.add_photo_alternate,
+                                  color: Colors.grey, size: 32),
+                              SizedBox(height: 6),
+                              Text('Add Shop Image',
+                                  style: TextStyle(
+                                      fontSize: 11, color: Colors.grey)),
                             ],
                           ),
                   ),
-                  if (_shopImageAdded)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(s.shopImageAdded,
-                          style: const TextStyle(color: Colors.orange, fontSize: 12,
-                              fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Text(
+                    _shopImageBytes != null
+                        ? s.shopImageAdded
+                        : 'Tap to select image',
+                    style: TextStyle(
+                      color: _shopImageBytes != null
+                          ? Colors.orange
+                          : Colors.grey,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
+                  ),
                 ],
               ),
             ),
           ),
+
           const SizedBox(height: 24),
-          _inputField(controller: _shopNameController, label: s.shopName,
-              icon: Icons.storefront, validator: (_) => null),
+          _inputField(
+              controller: _shopNameController,
+              label: s.shopName,
+              icon: Icons.storefront,
+              validator: (_) => null),
           const SizedBox(height: 14),
+
+          // Category dropdown
           DropdownButtonFormField<String>(
-            value: _selectedCategory,
+            initialValue: _selectedCategory,
             decoration: InputDecoration(
               labelText: s.category,
-              prefixIcon: const Icon(Icons.category, color: Colors.orange),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon:
+                  const Icon(Icons.category, color: Colors.orange),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12)),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.orange, width: 2),
+                borderSide:
+                    const BorderSide(color: Colors.orange, width: 2),
               ),
               filled: true,
               fillColor: Colors.grey.shade50,
             ),
             items: s.categories.map((cat) {
-              final label = (cat['label'] as Map)[s.language] as String;
+              final label =
+                  (cat['label'] as Map)[s.language] as String;
               return DropdownMenuItem<String>(
                 value: cat['key'] as String,
                 child: Row(
                   children: [
-                    Icon(cat['icon'] as IconData, color: Colors.orange, size: 20),
+                    Icon(cat['icon'] as IconData,
+                        color: Colors.orange, size: 20),
                     const SizedBox(width: 10),
-                    Text(label, style: const TextStyle(fontSize: 14)),
+                    Text(label,
+                        style: const TextStyle(fontSize: 14)),
                   ],
                 ),
               );
             }).toList(),
-            onChanged: (val) => setState(() => _selectedCategory = val),
+            onChanged: (val) =>
+                setState(() => _selectedCategory = val),
             validator: (v) => v == null ? s.selectCategory : null,
           ),
+
           const SizedBox(height: 14),
-          _inputField(controller: _locationController, label: s.location,
-              icon: Icons.location_on, maxLines: 2,
-              validator: (v) => v!.trim().isEmpty ? s.enterLocation : null),
+          _inputField(
+              controller: _locationController,
+              label: s.location,
+              icon: Icons.location_on,
+              maxLines: 2,
+              validator: (v) =>
+                  v!.trim().isEmpty ? s.enterLocation : null),
           const SizedBox(height: 20),
         ],
       ),
     );
   }
 
+  // ── Helpers ──
   Widget _sectionTitle(String title) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(title,
+            style: const TextStyle(
+                fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
-        Container(height: 3, width: 50,
-            decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(2))),
+        Container(
+            height: 3,
+            width: 50,
+            decoration: BoxDecoration(
+                color: Colors.orange,
+                borderRadius: BorderRadius.circular(2))),
       ],
     );
   }
@@ -409,10 +607,12 @@ class _RegisterPageState extends State<RegisterPage> {
         labelText: label,
         prefixIcon: Icon(icon, color: Colors.orange),
         suffixIcon: suffixIcon,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderSide:
+              const BorderSide(color: Colors.orange, width: 2),
         ),
         filled: true,
         fillColor: Colors.grey.shade50,
@@ -425,15 +625,19 @@ class _RegisterPageState extends State<RegisterPage> {
       children: [
         CircleAvatar(
           radius: 18,
-          backgroundColor: isActive ? Colors.orange : Colors.grey.shade300,
+          backgroundColor:
+              isActive ? Colors.orange : Colors.grey.shade300,
           child: Text('$step',
               style: TextStyle(
                   color: isActive ? Colors.white : Colors.grey,
                   fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 4),
-        Text(label, textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, color: isActive ? Colors.orange : Colors.grey)),
+        Text(label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 10,
+                color: isActive ? Colors.orange : Colors.grey)),
       ],
     );
   }
