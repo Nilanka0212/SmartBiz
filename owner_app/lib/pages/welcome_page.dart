@@ -15,61 +15,99 @@ class WelcomePage extends StatelessWidget {
       backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Spacer(),
-              Container(
-                width: 110,
-                height: 110,
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.orange, width: 2),
-                ),
-                child: const Icon(Icons.storefront, size: 60, color: Colors.orange),
-              ),
-              const SizedBox(height: 20),
-              const Text('ShopFlow',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87)),
-              Text(s.appTagline,
-                  style: const TextStyle(fontSize: 14, color: Colors.black45)),
-              const SizedBox(height: 30),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.orange.shade200),
-                ),
-                child: Column(
-                  children: [
-                    Text(s.welcomeTitle,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orange)),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _bizIcon(Icons.restaurant, 'Food'),
-                        _bizIcon(Icons.checkroom, 'Clothing'),
-                        _bizIcon(Icons.shopping_basket, 'Grocery'),
-                        _bizIcon(Icons.edit, 'Stationery'),
-                        _bizIcon(Icons.category, 'Other'),
-                      ],
+              const SizedBox(height: 24),
+
+              // ── Top: Logo + App name ──
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(height: 12),
-                    Text(s.welcomeDesc,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 13, color: Colors.black54)),
-                  ],
+                    child: const Icon(Icons.storefront, color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'SmartBiz',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 28),
+
+              // ── Welcome title ──
+              Text(
+                'Welcome to SmartBiz!',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
-              const SizedBox(height: 36),
+              const SizedBox(height: 6),
+              Text(
+                s.appTagline,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black45,
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // ── Center Illustration (your image) ──
+              Expanded(
+                // child: Container(
+                //   width: double.infinity,
+                //   height:500,
+                //   decoration: BoxDecoration(
+                //     color: const Color(0xFFE8F5F0),
+                //     borderRadius: BorderRadius.circular(24),
+                //   ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Image.asset(
+                      'assets/images/welcome.jpeg',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              // ),
+
+              const SizedBox(height: 24),
+
+              // ── Description ──
+              Text(
+                'Empower your business. Manage orders,\ncustomers and sales all in one place.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black54,
+                  height: 1.5,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // ── Get Started Button ──
               SizedBox(
                 width: double.infinity,
-                height: 52,
+                height: 54,
                 child: ElevatedButton(
                   onPressed: () => Navigator.push(
                     context,
@@ -78,46 +116,55 @@ class WelcomePage extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                   ),
-                  child: Text(s.registerBtn,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Get Started',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('${s.alreadyAccount}  ',
-                      style: const TextStyle(color: Colors.black54, fontSize: 14)),
-                  GestureDetector(
-                    onTap: () {},
-                    child: Text(s.loginBtn,
-                        style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 14)),
-                  ),
-                ],
+
+              const SizedBox(height: 14),
+
+              // ── Login link ──
+              Container(
+                width: double.infinity,
+                height: 54,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Have an account?  ',
+                      style: TextStyle(color: Colors.black54, fontSize: 14),
+                    ),
+                    GestureDetector(
+                      onTap: () {},
+                      child: const Text(
+                        'Log In',
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
-              const Text('ShopFlow v1.0', style: TextStyle(fontSize: 11, color: Colors.black26)),
-              const SizedBox(height: 16),
+
+              const SizedBox(height: 24),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _bizIcon(IconData icon, String label) {
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 22,
-          backgroundColor: Colors.white,
-          child: Icon(icon, color: Colors.orange, size: 22),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.black54)),
-      ],
     );
   }
 }
