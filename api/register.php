@@ -109,11 +109,26 @@ $stmt->bind_param(
 
 if ($stmt->execute()) {
     $owner_id = $conn->insert_id;
+
+    // Generate 6 digit OTP
+    $otp         = strval(rand(100000, 999999));
+    $otp_expires = date('Y-m-d H:i:s', strtotime('+4 minutes'));
+
+    // Save OTP
+    $otp_stmt = $conn->prepare(
+        "UPDATE owners SET otp = ?, otp_expires_at = ? WHERE id = ?"
+    );
+    $otp_stmt->bind_param("ssi", $otp, $otp_expires, $owner_id);
+    $otp_stmt->execute();
+    $otp_stmt->close();
+
     echo json_encode([
-        'success' => true,
-        'message' => 'Registration successful',
-        'token'   => $token,
-        'owner'   => [
+        'success'  => true,
+        'message'  => 'Registration successful',
+        'token'    => $token,
+        'owner_id' => $owner_id,
+        'otp'      => $otp, // ← for testing only, remove in production
+        'owner'    => [
             'id'            => $owner_id,
             'name'          => $name,
             'phone'         => $phone,

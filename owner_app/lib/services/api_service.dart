@@ -99,4 +99,85 @@ class ApiService {
       };
     }
   }
+  // ── Verify OTP ──
+static Future<Map<String, dynamic>> verifyOtp({
+  required String ownerId,
+  required String otp,
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/verify_otp.php'),
+    );
+    request.fields['owner_id'] = ownerId;
+    request.fields['otp']      = otp;
+
+    final response     = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data         = jsonDecode(responseBody);
+
+    return {
+      'success': response.statusCode == 200,
+      'data': data,
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'},
+    };
+  }
+}
+// ── Forgot Password ──
+static Future<Map<String, dynamic>> forgotPassword({
+  required String phone,
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/forgot_password.php'),
+    );
+    request.fields['phone'] = phone;
+    final response     = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data         = jsonDecode(responseBody);
+    return {
+      'success': response.statusCode == 200,
+      'data': data,
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'},
+    };
+  }
+}
+
+// ── Reset Password ──
+static Future<Map<String, dynamic>> resetPassword({
+  required String phone,
+  required String otp,
+  required String newPassword,
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/reset_password.php'),
+    );
+    request.fields['phone']        = phone;
+    request.fields['otp']          = otp;
+    request.fields['new_password'] = newPassword;
+    final response     = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data         = jsonDecode(responseBody);
+    return {
+      'success': response.statusCode == 200,
+      'data': data,
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'},
+    };
+  }
+}
 }

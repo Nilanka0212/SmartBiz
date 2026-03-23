@@ -1,9 +1,10 @@
-import 'dart:io';
+
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/language_provider.dart';
 import '../services/api_service.dart';
+import 'pages/otp_page.dart';
 
 class RegisterPage extends StatefulWidget {
   final AppStrings strings;
@@ -87,41 +88,51 @@ Future<void> _pickImage(bool isProfile) async {
   }
 
   // ── Submit to PHP API ──
-  Future<void> _submitRegistration() async {
-    setState(() => _isLoading = true);
+Future<void> _submitRegistration() async {
+  setState(() => _isLoading = true);
 
-    final result = await ApiService.register(
-      name:              _nameController.text.trim(),
-      phone:             _phoneController.text.trim(),
-      nic:               _nicController.text.trim(),
-      password:          _passwordController.text.trim(),
-      shopCategory:      _selectedCategory ?? '',
-      shopLocation:      _locationController.text.trim(),
-      shopName:          _shopNameController.text.trim(),
-      language:          s.language.name,
-      profilePhotoBytes: _profilePhotoBytes,
-      profilePhotoName:  'profile.jpg',
-      shopImageBytes:    _shopImageBytes,
-      shopImageName:     'shop.jpg',
-    );
+  final result = await ApiService.register(
+    name:              _nameController.text.trim(),
+    phone:             _phoneController.text.trim(),
+    nic:               _nicController.text.trim(),
+    password:          _passwordController.text.trim(),
+    shopCategory:      _selectedCategory ?? '',
+    shopLocation:      _locationController.text.trim(),
+    shopName:          _shopNameController.text.trim(),
+    language:          s.language.name,
+    profilePhotoBytes: _profilePhotoBytes,
+    profilePhotoName:  'profile.jpg',
+    shopImageBytes:    _shopImageBytes,
+    shopImageName:     'shop.jpg',
+  );
 
-    setState(() => _isLoading = false);
+  setState(() => _isLoading = false);
 
-    if (result['success'] == true) {
-      _showSuccess();
-    } else {
-      final data = result['data'];
-      String errorMsg = 'Registration failed';
-      if (data != null) {
-        if (data['errors'] != null) {
-          errorMsg = (data['errors'] as Map).values.first[0];
-        } else if (data['message'] != null) {
-          errorMsg = data['message'];
-        }
+  // // ── Debug prints ──
+  // debugPrint('====== API RESULT ======');
+  // debugPrint('Success: ${result['success']}');
+  // debugPrint('Data: ${result['data']}');
+  // debugPrint('OTP: ${result['data']['otp']}');
+  // debugPrint('Owner ID: ${result['data']['owner_id']}');
+  // debugPrint('========================');
+
+  if (result['success'] == true) {
+    final ownerId = result['data']['owner_id'].toString();
+    final otp     = result['data']['otp'].toString();
+    _showSuccess(ownerId, otp);
+  } else {
+    final data = result['data'];
+    String errorMsg = 'Registration failed';
+    if (data != null) {
+      if (data['errors'] != null) {
+        errorMsg = (data['errors'] as Map).values.first[0];
+      } else if (data['message'] != null) {
+        errorMsg = data['message'];
       }
-      _showError(errorMsg);
     }
+    _showError(errorMsg);
   }
+}
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -133,51 +144,18 @@ Future<void> _pickImage(bool isProfile) async {
     );
   }
 
-  void _showSuccess() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 70, height: 70,
-              decoration: const BoxDecoration(
-                  color: Colors.orange, shape: BoxShape.circle),
-              child: const Icon(Icons.check, color: Colors.white, size: 40),
-            ),
-            const SizedBox(height: 16),
-            Text(s.successTitle,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Text(s.successMsg,
-                style: const TextStyle(color: Colors.orange)),
-          ],
-        ),
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () =>
-                  Navigator.popUntil(context, (r) => r.isFirst),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Text(s.goHome,
-                  style: const TextStyle(color: Colors.white)),
-            ),
-          ),
-        ],
+  void _showSuccess(String ownerId, String otp) {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => OtpPage(
+        ownerId:  ownerId,
+        phone:    _phoneController.text.trim(),
+        dummyOtp: otp,
       ),
-    );
-  }
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
