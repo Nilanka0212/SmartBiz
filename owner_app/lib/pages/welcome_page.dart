@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../main.dart';
 import '../providers/language_provider.dart';
 import 'language_page.dart';
+import 'login_page.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
@@ -132,33 +133,37 @@ class WelcomePage extends StatelessWidget {
 
               // ── Login link ──
               Container(
-                width: double.infinity,
-                height: 54,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'Have an account?  ',
-                      style: TextStyle(color: Colors.black54, fontSize: 14),
-                    ),
-                    GestureDetector(
-                      onTap: () {},
-                      child: const Text(
-                        'Log In',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                  width: double.infinity,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Have an account?  ',
+                        style: TextStyle(color: Colors.black54, fontSize: 14),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.push(        // ← update this
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const LoginPage()),
+                        ),
+                        child: const Text(
+                          'Log In',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
               const SizedBox(height: 24),
             ],
