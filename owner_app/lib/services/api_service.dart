@@ -180,4 +180,139 @@ static Future<Map<String, dynamic>> resetPassword({
     };
   }
 }
+
+
+// ── Get Products ──
+static Future<Map<String, dynamic>> getProducts({
+  required String ownerId,
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/products/get_products.php'),
+    );
+    request.fields['owner_id'] = ownerId;
+    final response     = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data         = jsonDecode(responseBody);
+    return {'success': data['success'], 'data': data};
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'}
+    };
+  }
+}
+
+// ── Add Product ──
+static Future<Map<String, dynamic>> addProduct({
+  required String ownerId,
+  required String name,
+  required String price,
+  required String description,
+  Uint8List? imageBytes,
+  String? imageName,
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/products/add_product.php'),
+    );
+    request.fields['owner_id']    = ownerId;
+    request.fields['name']        = name;
+    request.fields['price']       = price;
+    request.fields['description'] = description;
+
+    if (imageBytes != null) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'image',
+        imageBytes,
+        filename: imageName ?? 'product.jpg',
+      ));
+    }
+
+    final response     = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data         = jsonDecode(responseBody);
+    return {
+      'success': data['success'] == true,
+      'data': data
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'}
+    };
+  }
+}
+
+// ── Update Product ──
+static Future<Map<String, dynamic>> updateProduct({
+  required String productId,
+  required String name,
+  required String price,
+  required String description,
+  Uint8List? imageBytes,
+  String? imageName,
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/products/update_product.php'),
+    );
+    request.fields['product_id']  = productId;
+    request.fields['name']        = name;
+    request.fields['price']       = price;
+    request.fields['description'] = description;
+
+    if (imageBytes != null) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'image',
+        imageBytes,
+        filename: imageName ?? 'product.jpg',
+      ));
+    }
+
+    final response     = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data         = jsonDecode(responseBody);
+    return {
+      'success': data['success'] == true,
+      'data': data
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'}
+    };
+  }
+}
+
+// ── Toggle Product ──
+static Future<Map<String, dynamic>> toggleProduct({
+  required String productId,
+  required bool isActive,
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/products/toggle_product.php'),
+    );
+    request.fields['product_id'] = productId;
+    request.fields['is_active']  = isActive ? '1' : '0';
+
+    final response     = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data         = jsonDecode(responseBody);
+    return {
+      'success': data['success'] == true,
+      'data': data
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'}
+    };
+  }
+}
 }

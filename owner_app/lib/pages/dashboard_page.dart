@@ -339,7 +339,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    widget.owner['name'] ?? 'Owner',
+                    widget.owner['shop_name'] ?? '  My Shop',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -348,7 +348,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    widget.owner['shop_name'] ?? 'My Shop',
+                    widget.owner['name'] ?? 'Owner',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 13,
