@@ -67,29 +67,42 @@ class AdminDashboardController extends Controller {
     }
 
     // ── Products ──
-    public function products(Request $request) {
-        if ($r = $this->checkAuth()) return $r;
+   // ── Products ──
+public function products(Request $request) {
+    if ($r = $this->checkAuth()) return $r;
 
-        $status   = $request->get('status', 'pending');
-        $products = Product::with('owner')
-                    ->where('status', $status)
-                    ->latest()
-                    ->paginate(10);
+    $status = $request->get('status', 'pending');
+    $search = $request->get('search', '');
 
-        $counts = [
-            'pending'  => Product::where(
-                'status', 'pending')->count(),
-            'active'   => Product::where(
-                'status', 'active')->count(),
-            'inactive' => Product::where(
-                'status', 'inactive')->count(),
-            'rejected' => Product::where(
-                'status', 'rejected')->count(),
-        ];
+    // Get owners who have products with this status
+    $owners = Owner::whereHas('products', function($q) 
+                    use ($status) {
+        $q->where('status', $status);
+    })
+    ->with(['products' => function($q) use ($status) {
+        $q->where('status', $status)->latest();
+    }])
+    ->when($search, function($q) use ($search) {
+        $q->where('name', 'like', "%$search%")
+          ->orWhere('shop_name', 'like', "%$search%");
+    })
+    ->latest()
+    ->paginate(5);
 
-        return view('admin.products',
-                    compact('products', 'status', 'counts'));
-    }
+    $counts = [
+        'pending'  => \App\Models\Product::where(
+            'status', 'pending')->count(),
+        'active'   => \App\Models\Product::where(
+            'status', 'active')->count(),
+        'inactive' => \App\Models\Product::where(
+            'status', 'inactive')->count(),
+        'rejected' => \App\Models\Product::where(
+            'status', 'rejected')->count(),
+    ];
+
+    return view('admin.products',
+        compact('owners', 'status', 'counts', 'search'));
+}
 
     public function approveProduct($id) {
         if ($r = $this->checkAuth()) return $r;

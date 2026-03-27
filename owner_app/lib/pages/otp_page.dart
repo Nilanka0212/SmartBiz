@@ -63,43 +63,46 @@ class _OtpPageState extends State<OtpPage> {
       _controllers.map((c) => c.text).join();
 
   Future<void> _verifyOtp() async {
-    if (_otpValue.length < 6) {
-      _showError('Please enter complete 6 digit OTP');
-      return;
-    }
+  if (_otpValue.length < 6) {
+    _showError('Please enter complete 6 digit OTP');
+    return;
+  }
 
-    setState(() => _isLoading = true);
+  setState(() => _isLoading = true);
 
-    final result = await ApiService.verifyOtp(
-      ownerId: widget.ownerId,
-      otp:     _otpValue,
+  final result = await ApiService.verifyOtp(
+    ownerId: widget.ownerId,
+    otp:     _otpValue,
+  );
+
+  setState(() => _isLoading = false);
+
+  if (result['data']['success'] == true) {
+    // ── Save login session ──
+    await AuthService.saveLogin(
+      token: result['data']['token'],
+      owner: Map<String, dynamic>.from(
+          result['data']['owner']),
     );
 
-    setState(() => _isLoading = false);
+    if (!mounted) return;
 
-    if (result['data']['success'] == true) {
-      // Save login session
-      await AuthService.saveLogin(
-        token: result['data']['token'],
-        owner: Map<String, dynamic>.from(result['data']['owner']),
-      );
-
-      if (!mounted) return;
-
-      // Go to dashboard — remove all previous routes
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DashboardPage(
-            owner: Map<String, dynamic>.from(result['data']['owner']),
-          ),
+    // ── Go to dashboard ──
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DashboardPage(
+          owner: Map<String, dynamic>.from(
+              result['data']['owner']),
         ),
-        (route) => false,
-      );
-    } else {
-      _showError(result['data']['message'] ?? 'Invalid OTP');
-    }
+      ),
+      (route) => false,
+    );
+  } else {
+    _showError(
+        result['data']['message'] ?? 'Invalid OTP');
   }
+}
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(

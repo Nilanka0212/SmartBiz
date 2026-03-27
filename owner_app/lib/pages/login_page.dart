@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/auth_services.dart';
 import 'dashboard_page.dart';
+import 'otp_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -25,48 +26,65 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+  setState(() => _isLoading = true);
 
-    final result = await ApiService.login(
-      phone:    _phoneController.text.trim(),
-      password: _passwordController.text.trim(),
+  final result = await ApiService.login(
+    phone:    _phoneController.text.trim(),
+    password: _passwordController.text.trim(),
+  );
+
+  setState(() => _isLoading = false);
+
+  if (result['success'] == true &&
+      result['data']['success'] == true) {
+    // ── Logged in successfully ──
+    final owner = result['data']['owner'];
+    final token = result['data']['token'];
+
+    await AuthService.saveLogin(
+      token: token,
+      owner: Map<String, dynamic>.from(owner),
     );
 
-    setState(() => _isLoading = false);
+    if (!mounted) return;
 
-    debugPrint('Login Result: ${result['data']}');
-
-    if (result['success'] == true &&
-        result['data']['success'] == true) {
-      final owner = result['data']['owner'];
-      final token = result['data']['token'];
-
-      // Save login session
-      await AuthService.saveLogin(
-        token: token,
-        owner: Map<String, dynamic>.from(owner),
-      );
-
-      if (!mounted) return;
-
-      // Go to dashboard
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DashboardPage(
-            owner: Map<String, dynamic>.from(owner),
-          ),
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DashboardPage(
+          owner: Map<String, dynamic>.from(owner),
         ),
-        (route) => false,
-      );
-    } else {
-      _showError(
-          result['data']['message'] ?? 'Login failed');
-    }
-  }
+      ),
+      (route) => false,
+    );
 
+  } else if (result['data']['need_otp'] == true) {
+    // ── Not verified — go to OTP page ──
+    final ownerId = result['data']['owner_id'].toString();
+    final phone   = result['data']['phone'].toString();
+    final otp     = result['data']['otp']?.toString();
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OtpPage(
+          ownerId:  ownerId,
+          phone:    phone,
+          dummyOtp: otp,
+        ),
+      ),
+    );
+
+  } else {
+    // ── Error ──
+    _showError(
+        result['data']['message'] ?? 'Login failed');
+  }
+}
   // void _showError(String msg) {
   //   ScaffoldMessenger.of(context).showSnackBar(
   //     SnackBar(

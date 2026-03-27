@@ -72,33 +72,43 @@ class ApiService {
     }
   }
 
-  // ── Login ──
-  static Future<Map<String, dynamic>> login({
-    required String phone,
-    required String password,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/login.php'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'phone':    phone,
-          'password': password,
-        }),
-      );
+// ── Login ──
+static Future<Map<String, dynamic>> login({
+  required String phone,
+  required String password,
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/login.php'),
+    );
+    request.fields['phone']    = phone;
+    request.fields['password'] = password;
 
-      final data = jsonDecode(response.body);
-      return {
-        'success': response.statusCode == 200,
-        'data': data,
-      };
-    } catch (e) {
+    final response     = await request.send();
+    final responseBody = await response.stream.bytesToString();
+
+    // print('Login Response: $responseBody');
+
+    if (responseBody.isEmpty) {
       return {
         'success': false,
-        'data': {'message': 'Connection error: $e'},
+        'data': {'message': 'Empty response from server'}
       };
     }
+
+    final data = jsonDecode(responseBody);
+    return {
+      'success': data['success'] == true,
+      'data': data,
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'},
+    };
   }
+}
   // ── Verify OTP ──
 static Future<Map<String, dynamic>> verifyOtp({
   required String ownerId,
