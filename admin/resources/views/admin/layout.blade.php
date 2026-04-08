@@ -96,6 +96,18 @@
                 </span>
             @endif
         </a>
+        <a href="/admin/orders"
+           class="nav-link {{ request()->is('admin/orders*') ? 'active' : '' }}">
+            <i class="fas fa-shopping-cart"></i> Orders
+            @php
+                $pendingOrders = \App\Models\Order::where('status','pending')->count();
+            @endphp
+            @if($pendingOrders > 0)
+                <span class="badge bg-danger ms-1">
+                    {{ $pendingOrders }}
+                </span>
+            @endif
+        </a>
         <a href="/admin/summary"
            class="nav-link {{ request()->is('admin/summary*') ? 'active' : '' }}">
             <i class="fas fa-chart-bar"></i> Summary

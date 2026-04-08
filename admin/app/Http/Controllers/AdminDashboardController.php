@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Owner;
 use App\Models\Product;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -22,12 +23,24 @@ class AdminDashboardController extends Controller {
     public function dashboard() {
         if ($r = $this->checkAuth()) return $r;
 
-        $totalOwners    = Owner::count();
-        $totalProducts  = Product::count();
-        $pendingProducts = Product::where(
-                            'status', 'pending')->count();
-        $activeProducts = Product::where(
-                            'status', 'active')->count();
+        $totalOwners      = Owner::count();
+        $totalProducts    = Product::count();
+        $pendingProducts  = Product::where(
+                              'status', 'pending')->count();
+        $activeProducts   = Product::where(
+                              'status', 'active')->count();
+
+        // Orders stats
+        $totalOrders      = Order::count();
+        $pendingOrders    = Order::where('status', 'pending')->count();
+        $preparingOrders  = Order::where('status', 'preparing')->count();
+        $completedOrders  = Order::where('status', 'completed')->count();
+
+        // Recent orders
+        $recentOrders = Order::with('owner')
+                            ->orderBy('created_at', 'desc')
+                            ->take(10)
+                            ->get();
 
         // Products by category
         $productsByCategory = Product::select(
@@ -44,9 +57,52 @@ class AdminDashboardController extends Controller {
             'totalProducts',
             'pendingProducts',
             'activeProducts',
+            'totalOrders',
+            'pendingOrders',
+            'preparingOrders',
+            'completedOrders',
+            'recentOrders',
             'productsByCategory',
             'recentOwners'
         ));
+    }
+
+    // ── Orders ──
+    public function orders(Request $request) {
+        if ($r = $this->checkAuth()) return $r;
+
+        $status = $request->get('status', '');
+        $search = $request->get('search', '');
+
+        $query = Order::with('owner');
+
+        if (!empty($status)) {
+            $query->where('status', $status);
+        }
+
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('customer_name', 'like', "%$search%")
+                  ->orWhere('customer_phone', 'like', "%$search%")
+                  ->orWhere('id', 'like', "%$search%");
+            })->orWhereHas('owner', function($q) use ($search) {
+                $q->where('shop_name', 'like', "%$search%")
+                  ->orWhere('name', 'like', "%$search%");
+            });
+        }
+
+        $orders = $query->orderBy('created_at', 'desc')
+                       ->paginate(15);
+
+        $counts = [
+            'all'       => Order::count(),
+            'pending'   => Order::where('status', 'pending')->count(),
+            'preparing' => Order::where('status', 'preparing')->count(),
+            'completed' => Order::where('status', 'completed')->count(),
+            'cancelled' => Order::where('status', 'cancelled')->count(),
+        ];
+
+        return view('admin.orders', compact('orders', 'counts', 'status', 'search'));
     }
 
     // ── Owners ──
@@ -129,6 +185,18 @@ public function products(Request $request) {
     }
 
     // ── Daily Summary ──
+    public function deactivateProduct($id) {
+        if ($r = $this->checkAuth()) return $r;
+
+        Product::where('id', $id)->update([
+            'status'    => 'inactive',
+            'is_active' => 0,
+        ]);
+
+        return back()->with(
+            'success', 'Product deactivated successfully!');
+    }
+
     public function summary() {
         if ($r = $this->checkAuth()) return $r;
 

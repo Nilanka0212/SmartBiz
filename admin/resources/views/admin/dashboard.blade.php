@@ -80,6 +80,62 @@
             </div>
         </div>
     </div>
+    <div class="col-md-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">Total Orders</div>
+                        <div class="fs-2 fw-bold text-info">
+                            {{ $totalOrders }}
+                        </div>
+                    </div>
+                    <div style="width:50px;height:50px;background:#cfe2ff;
+                                border-radius:12px;display:flex;
+                                align-items:center;justify-content:center">
+                        <i class="fas fa-shopping-cart text-info fa-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">Pending Orders</div>
+                        <div class="fs-2 fw-bold text-warning">
+                            {{ $pendingOrders }}
+                        </div>
+                    </div>
+                    <div style="width:50px;height:50px;background:#fff3cd;
+                                border-radius:12px;display:flex;
+                                align-items:center;justify-content:center">
+                        <i class="fas fa-hourglass-end text-warning fa-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">Preparing Orders</div>
+                        <div class="fs-2 fw-bold" style="color: #0dcaf0;">
+                            {{ $preparingOrders }}
+                        </div>
+                    </div>
+                    <div style="width:50px;height:50px;background:#d1ecf1;
+                                border-radius:12px;display:flex;
+                                align-items:center;justify-content:center">
+                        <i class="fas fa-utensils" style="color: #0dcaf0;" class="fa-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
 </div>
 
 <div class="row g-4">
@@ -143,6 +199,83 @@
             </div>
             <div class="card-body d-flex align-items-center">
                 <canvas id="productChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Orders -->
+<div class="row g-4 mt-2">
+    <div class="col-12">
+        <div class="card stat-card">
+            <div class="card-header bg-white border-0 pt-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0">
+                        <i class="fas fa-shopping-cart me-2 text-info"></i>
+                        Recent Orders
+                    </h6>
+                    <a href="{{ route('admin.orders') }}" class="btn btn-sm btn-outline-info">
+                        View All <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 60px">Order #</th>
+                                <th>Customer</th>
+                                <th>Shop</th>
+                                <th style="width: 90px">Total</th>
+                                <th style="width: 90px">Status</th>
+                                <th style="width: 110px">Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($recentOrders as $order)
+                            <tr>
+                                <td><strong>#{{ $order->id }}</strong></td>
+                                <td>
+                                    <div class="fw-semibold">
+                                        {{ $order->customer_name ?: 'Walk-in' }}
+                                    </div>
+                                    <small class="text-muted">
+                                        {{ $order->customer_phone ?: 'N/A' }}
+                                    </small>
+                                </td>
+                                <td>
+                                    {{ $order->owner->shop_name ?? $order->owner->name ?? 'N/A' }}
+                                </td>
+                                <td><strong>Rs. {{ number_format($order->total_price, 2) }}</strong></td>
+                                <td>
+                                    @php
+                                        $statusClass = match($order->status) {
+                                            'pending' => 'warning',
+                                            'preparing' => 'info',
+                                            'completed' => 'success',
+                                            'cancelled' => 'danger',
+                                            default => 'secondary',
+                                        };
+                                    @endphp
+                                    <span class="badge bg-{{ $statusClass }}">
+                                        {{ ucfirst($order->status) }}
+                                    </span>
+                                </td>
+                                <td class="text-muted small">
+                                    {{ $order->created_at?->format('M d, H:i') ?? 'N/A' }}
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    No orders yet
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

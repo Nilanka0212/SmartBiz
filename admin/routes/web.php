@@ -46,6 +46,14 @@ Route::post('/admin/products/{id}/reject',
     [AdminDashboardController::class, 'rejectProduct'])
     ->name('admin.product.reject');
 
+Route::post('/admin/products/{id}/deactivate',
+    [AdminDashboardController::class, 'deactivateProduct'])
+    ->name('admin.product.deactivate');
+
 Route::get('/admin/summary',
     [AdminDashboardController::class, 'summary'])
     ->name('admin.summary');
+
+Route::get('/admin/orders',
+    [AdminDashboardController::class, 'orders'])
+    ->name('admin.orders');
