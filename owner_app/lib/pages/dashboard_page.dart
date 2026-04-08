@@ -1,12 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import '../services/auth_services.dart';
-import '../providers/language_provider.dart';
+
+import '../config/app_config.dart';
 import '../main.dart';
-import 'welcome_page.dart';
-import 'product_list_page.dart';
-import 'previous_orders_page.dart';
+import '../providers/language_provider.dart';
+import '../services/api_service.dart';
+import '../services/auth_services.dart';
 import 'daily_summary_page.dart';
+import 'orders_page.dart';
+import 'previous_orders_page.dart';
+import 'product_list_page.dart';
 import 'settings_page.dart';
+import 'welcome_page.dart';
 
 class DashboardPage extends StatefulWidget {
   final Map<String, dynamic> owner;
@@ -18,9 +24,32 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
+  Timer? _pollTimer;
+  bool _isLoadingPending = false;
+  bool _isDialogShowing = false;
+  List<Map<String, dynamic>> _pendingOrders = [];
+  final List<Map<String, dynamic>> _dialogQueue = [];
+  final Set<int> _notifiedOrderIds = <int>{};
 
   AppLanguage get _language =>
       MyApp.of(context)?.language ?? AppLanguage.english;
+  String get _ownerId => '${widget.owner['id']}';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPendingOrders();
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _fetchPendingOrders(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
 
   // ── Drawer menu items ──
   final List<Map<String, dynamic>> _menuItems = [
@@ -154,6 +183,191 @@ class _DashboardPageState extends State<DashboardPage> {
 
   String _getPageTitle() {
     return _getLabel(_menuItems[_selectedIndex]);
+  }
+
+  Future<void> _fetchPendingOrders() async {
+    if (_isLoadingPending) return;
+    _isLoadingPending = true;
+
+    final response = await ApiService.getPendingOrders(
+      ownerId: _ownerId,
+    );
+
+    _isLoadingPending = false;
+    if (!mounted || response['success'] != true) {
+      return;
+    }
+
+    final payload =
+        Map<String, dynamic>.from(response['data']['data'] ?? {});
+    final rawOrders =
+        List<Map<String, dynamic>>.from(payload['orders'] ?? []);
+
+    setState(() {
+      _pendingOrders = rawOrders;
+    });
+
+    for (final order in rawOrders) {
+      final orderId = int.tryParse('${order['id']}');
+      if (orderId == null || _notifiedOrderIds.contains(orderId)) {
+        continue;
+      }
+
+      _notifiedOrderIds.add(orderId);
+      _dialogQueue.add(order);
+    }
+
+    _showNextOrderDialog();
+  }
+
+  Future<void> _showNextOrderDialog() async {
+    if (!mounted || _isDialogShowing || _dialogQueue.isEmpty) {
+      return;
+    }
+
+    _isDialogShowing = true;
+    final order = _dialogQueue.removeAt(0);
+    final shouldConfirm = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.notifications_active,
+                color: Colors.orange,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'New Order #${order['id']}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              (order['customer_name'] ?? '').toString().trim().isEmpty
+                  ? 'Customer: Walk-in customer'
+                  : 'Customer: ${order['customer_name']}',
+            ),
+            const SizedBox(height: 6),
+            Text(
+              (order['customer_phone'] ?? '').toString().trim().isEmpty
+                  ? 'Phone: Not provided'
+                  : 'Phone: ${order['customer_phone']}',
+            ),
+            const SizedBox(height: 6),
+            Text('Items: ${_itemsSummary(order)}'),
+            const SizedBox(height: 6),
+            Text(
+              'Total: Rs. ${_formatMoney(order['total_price'])}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Payment: ${order['payment_method']} / ${order['payment_status']}',
+            ),
+            if ((order['note'] ?? '').toString().trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Note: ${order['note']}',
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ],
+            const SizedBox(height: 12),
+            const Text(
+              'Confirm this order to move it to preparing.',
+              style: TextStyle(color: Colors.black54),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Later'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    _isDialogShowing = false;
+
+    if (shouldConfirm == true) {
+      await _confirmOrder(order);
+    }
+
+    if (mounted) {
+      _showNextOrderDialog();
+    }
+  }
+
+  Future<void> _confirmOrder(Map<String, dynamic> order) async {
+    final response = await ApiService.updateOrderStatus(
+      orderId: '${order['id']}',
+      status: 'preparing',
+    );
+
+    if (!mounted) return;
+
+    if (response['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Order #${order['id']} is now preparing'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      await _fetchPendingOrders();
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          response['data']?['message']?.toString() ?? 'Failed to update order',
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  String _formatMoney(dynamic value) {
+    final amount = double.tryParse('$value') ?? 0;
+    return amount.toStringAsFixed(2);
+  }
+
+  String _itemsSummary(Map<String, dynamic> order) {
+    final rawItems =
+        List<Map<String, dynamic>>.from(order['items_list'] ?? []);
+    if (rawItems.isEmpty) return 'No items';
+
+    return rawItems
+        .map((item) => '${item['name']} x${item['qty']}')
+        .join(', ');
   }
 
   // ── Create order dialog ──
@@ -302,8 +516,28 @@ class _DashboardPageState extends State<DashboardPage> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_outlined),
+                if (_pendingOrders.isNotEmpty)
+                  Positioned(
+                    right: -3,
+                    top: -3,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            onPressed: _pendingOrders.isEmpty
+                ? _fetchPendingOrders
+                : _showNextOrderDialog,
           ),
         ],
       ),
@@ -329,7 +563,10 @@ class _DashboardPageState extends State<DashboardPage> {
                     backgroundImage:
                         widget.owner['profile_photo'] != null
                             ? NetworkImage(
-                                'http://10.0.2.2/SmartBiz/api/${widget.owner['profile_photo']}')
+                                AppConfig.apiAssetUrl(
+                                  widget.owner['profile_photo'].toString(),
+                                ),
+                              )
                             : null,
                     child: widget.owner['profile_photo'] ==
                             null
@@ -554,7 +791,10 @@ class _DashboardPageState extends State<DashboardPage> {
                   backgroundImage:
                       widget.owner['profile_photo'] != null
                           ? NetworkImage(
-                              'http://10.0.2.2/SmartBiz/api/${widget.owner['profile_photo']}')
+                              AppConfig.apiAssetUrl(
+                                widget.owner['profile_photo'].toString(),
+                              ),
+                            )
                           : null,
                   child: widget.owner['profile_photo'] == null
                       ? const Icon(Icons.person,
@@ -668,7 +908,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
+            height: 640,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -680,43 +920,69 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ],
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            clipBehavior: Clip.antiAlias,
+            child: const OrdersPage(),
+          ),
+
+          // ── QR Code Card ──
+Container(
+  width: double.infinity,
+  decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.05),
+        blurRadius: 10,
+        offset: const Offset(0, 2),
+      ),
+    ],
+  ),
+  child: Padding(
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.purple.shade50,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.qr_code,
+                  color: Colors.purple, size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 60, height: 60,
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.pending_actions,
-                      color: Colors.orange, size: 30),
-                ),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '0',
-                      style: TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange,
-                      ),
-                    ),
-                    Text(
-                      _pendingOrdersText,
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
+                Text('Your Shop QR Code',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold)),
+                Text('Let customers scan to order',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.black45)),
               ],
             ),
-          ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        // QR Image
+        Image.network(
+          'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${Uri.encodeComponent('${AppConfig.customerShopBaseUrl}?id=${widget.owner['id']}')}',
+          width: 200, height: 200,
+        ),
+        const SizedBox(height: 8),
+        const Text('Show this QR to your customers',
+            style: TextStyle(
+                color: Colors.black45, fontSize: 12)),
+      ],
+    ),
+  ),
+),
 
           const SizedBox(height: 20),
         ],

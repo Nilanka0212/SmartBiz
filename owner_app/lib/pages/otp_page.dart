@@ -25,7 +25,7 @@ class _OtpPageState extends State<OtpPage> {
   final List<FocusNode> _focusNodes =
       List.generate(6, (_) => FocusNode());
   bool _isLoading  = false;
-  int _secondsLeft = 180; // 2 minutes
+  int _secondsLeft = 60; // 2 minutes
 
   @override
   void initState() {

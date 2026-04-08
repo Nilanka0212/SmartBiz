@@ -2,8 +2,10 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import '../config/app_config.dart';
+
 class ApiService {
-  static const String baseUrl = 'http://10.0.2.2/SmartBiz/api';
+  static String get baseUrl => AppConfig.apiBaseUrl;
 
   // ── Register ──
   static Future<Map<String, dynamic>> register({
@@ -317,6 +319,88 @@ static Future<Map<String, dynamic>> toggleProduct({
     return {
       'success': data['success'] == true,
       'data': data
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'}
+    };
+  }
+}
+// ── Get Orders ──
+static Future<Map<String, dynamic>> getOrders({
+  required String ownerId,
+  required String status,
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/orders/get_orders.php'),
+    );
+    request.fields['owner_id'] = ownerId;
+    request.fields['status']   = status;
+
+    final response     = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data         = jsonDecode(responseBody);
+
+    return {
+      'success': data['success'] == true,
+      'data':    data,
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'}
+    };
+  }
+}
+
+// ── Update Order Status ──
+static Future<Map<String, dynamic>> updateOrderStatus({
+  required String orderId,
+  required String status,
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/orders/update_order_status.php'),
+    );
+    request.fields['order_id'] = orderId;
+    request.fields['status']   = status;
+
+    final response     = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data         = jsonDecode(responseBody);
+
+    return {
+      'success': data['success'] == true,
+      'data':    data,
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'}
+    };
+  }
+}
+static Future<Map<String, dynamic>> getPendingOrders({
+  required String ownerId,
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/orders/get_pending_orders.php'),
+    );
+    request.fields['owner_id'] = ownerId;
+
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data = jsonDecode(responseBody);
+
+    return {
+      'success': data['success'] == true,
+      'data': data,
     };
   } catch (e) {
     return {

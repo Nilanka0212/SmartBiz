@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../config/app_config.dart';
 import '../services/api_service.dart';
 import '../services/auth_services.dart';
 
@@ -160,10 +161,10 @@ class _ProductListPageState extends State<ProductListPage> {
               borderRadius: BorderRadius.circular(10),
               child: product['image'] != null
                   ? Image.network(
-                      'http://10.0.2.2/SmartBiz/api/${product['image']}',
+                      AppConfig.apiAssetUrl(product['image'].toString()),
                       width: 60, height: 60,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, _e) =>
+                      errorBuilder: (_, __, _) =>
                           _imagePlaceholder(),
                     )
                   : _imagePlaceholder(),
@@ -856,10 +857,12 @@ class _AddEditProductPageState
                                         BorderRadius
                                             .circular(14),
                                     child: Image.network(
-                                      'http://10.0.2.2/SmartBiz/api/${widget.product!['image']}',
+                                      AppConfig.apiAssetUrl(
+                                        widget.product!['image'].toString(),
+                                      ),
                                       fit: BoxFit.cover,
                                       errorBuilder:
-                                          (_, __, _e) =>
+                                          (_, __, _) =>
                                               _imagePlaceholderWidget(),
                                     ),
                                   )
