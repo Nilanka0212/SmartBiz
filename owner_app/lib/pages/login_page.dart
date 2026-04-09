@@ -159,7 +159,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 20),
                   const Text(
-                    'ShopFlow',
+                    'SmartBiz',
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,

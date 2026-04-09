@@ -104,7 +104,7 @@ class _DashboardPageState extends State<DashboardPage> {
       case AppLanguage.tamil:
         return 'வரவேற்கிறோம்';
       default:
-        return 'Welcome back';
+        return 'Welcome';
     }
   }
 
