@@ -237,6 +237,35 @@
                     </div>
                     @endif
 
+                    @if($product->status == 'active')
+                    <div class="card-footer bg-white p-2">
+                        <form method="POST"
+                              action="/admin/products/{{ $product->id }}/deactivate">
+                            @csrf
+                            <button type="submit"
+                                    class="btn btn-outline-secondary btn-sm w-100"
+                                    onclick="return confirm('Deactivate this product? It will be hidden from customers.')">
+                                <i class="fas fa-pause-circle me-1"></i>
+                                Deactivate
+                            </button>
+                        </form>
+                    </div>
+                    @endif
+
+                    @if($product->status == 'inactive')
+                    <div class="card-footer bg-white p-2">
+                        <form method="POST"
+                              action="/admin/products/{{ $product->id }}/approve">
+                            @csrf
+                            <button type="submit"
+                                    class="btn btn-outline-success btn-sm w-100">
+                                <i class="fas fa-play-circle me-1"></i>
+                                Activate Again
+                            </button>
+                        </form>
+                    </div>
+                    @endif
+
                 </div>
             </div>
             @endforeach
