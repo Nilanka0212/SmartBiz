@@ -22,6 +22,7 @@ return new class extends Migration {
             $table->string('otp', 6)->nullable();
             $table->dateTime('otp_expires_at')->nullable();
             $table->tinyInteger('is_verified')->default(0);
+            $table->tinyInteger('is_shop_open')->default(1);
             $table->timestamps();
         });
     }

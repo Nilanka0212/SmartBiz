@@ -27,17 +27,22 @@ class _DashboardPageState extends State<DashboardPage> {
   Timer? _pollTimer;
   bool _isLoadingPending = false;
   bool _isDialogShowing = false;
+  bool _isUpdatingShopStatus = false;
   List<Map<String, dynamic>> _pendingOrders = [];
   final List<Map<String, dynamic>> _dialogQueue = [];
   final Set<int> _notifiedOrderIds = <int>{};
+  late Map<String, dynamic> _owner;
 
   AppLanguage get _language =>
       MyApp.of(context)?.language ?? AppLanguage.english;
-  String get _ownerId => '${widget.owner['id']}';
+  String get _ownerId => '${_owner['id']}';
+  bool get _isShopOpen =>
+      _owner['is_shop_open'] == 1 || _owner['is_shop_open'] == '1';
 
   @override
   void initState() {
     super.initState();
+    _owner = Map<String, dynamic>.from(widget.owner);
     _fetchPendingOrders();
     _pollTimer = Timer.periodic(
       const Duration(seconds: 5),
@@ -371,6 +376,65 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   // ── Create order dialog ──
+  Future<void> _toggleShopStatus(bool value) async {
+    if (_isUpdatingShopStatus) return;
+
+    setState(() {
+      _isUpdatingShopStatus = true;
+    });
+
+    final response = await ApiService.updateShopStatus(
+      ownerId: _ownerId,
+      isShopOpen: value,
+    );
+
+    if (!mounted) return;
+
+    if (response['success'] == true) {
+      final updatedOwner = Map<String, dynamic>.from(
+        response['data']['owner'] ?? {},
+      );
+      final mergedOwner = {
+        ..._owner,
+        ...updatedOwner,
+      };
+
+      await AuthService.updateOwner(mergedOwner);
+
+      setState(() {
+        _owner = mergedOwner;
+        _isUpdatingShopStatus = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            response['data']['message']?.toString() ??
+                'Shop status updated',
+          ),
+          backgroundColor: value ? Colors.green : Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isUpdatingShopStatus = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          response['data']?['message']?.toString() ??
+              'Failed to update shop status',
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void _showCreateOrderDialog() {
     showModalBottomSheet(
       context: context,
@@ -561,14 +625,14 @@ class _DashboardPageState extends State<DashboardPage> {
                     radius: 35,
                     backgroundColor: Colors.white,
                     backgroundImage:
-                        widget.owner['profile_photo'] != null
+                        _owner['profile_photo'] != null
                             ? NetworkImage(
                                 AppConfig.apiAssetUrl(
-                                  widget.owner['profile_photo'].toString(),
+                                  _owner['profile_photo'].toString(),
                                 ),
                               )
                             : null,
-                    child: widget.owner['profile_photo'] ==
+                    child: _owner['profile_photo'] ==
                             null
                         ? const Icon(Icons.person,
                             color: Colors.orange, size: 40)
@@ -576,7 +640,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    widget.owner['shop_name'] ?? '  My Shop',
+                    _owner['shop_name'] ?? '  My Shop',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -585,7 +649,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    widget.owner['name'] ?? 'Owner',
+                    _owner['name'] ?? 'Owner',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 13,
@@ -598,7 +662,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           color: Colors.white70, size: 14),
                       const SizedBox(width: 4),
                       Text(
-                        widget.owner['phone'] ?? '',
+                        _owner['phone'] ?? '',
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 12,
@@ -766,7 +830,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        widget.owner['name'] ?? 'Owner',
+                        _owner['name'] ?? 'Owner',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -775,7 +839,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        widget.owner['shop_name'] ??
+                        _owner['shop_name'] ??
                             'My Shop',
                         style: const TextStyle(
                           color: Colors.white70,
@@ -789,19 +853,90 @@ class _DashboardPageState extends State<DashboardPage> {
                   radius: 30,
                   backgroundColor: Colors.white30,
                   backgroundImage:
-                      widget.owner['profile_photo'] != null
+                      _owner['profile_photo'] != null
                           ? NetworkImage(
                               AppConfig.apiAssetUrl(
-                                widget.owner['profile_photo'].toString(),
+                                _owner['profile_photo'].toString(),
                               ),
                             )
                           : null,
-                  child: widget.owner['profile_photo'] == null
+                  child: _owner['profile_photo'] == null
                       ? const Icon(Icons.person,
                           color: Colors.white, size: 35)
                       : null,
                 ),
               ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _isShopOpen
+                          ? Colors.green.shade50
+                          : Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      _isShopOpen
+                          ? Icons.storefront
+                          : Icons.store_mall_directory,
+                      color: _isShopOpen ? Colors.green : Colors.red,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isShopOpen ? 'Shop is Open' : 'Shop is Closed',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _isShopOpen
+                              ? 'Customers can scan the QR and view your products.'
+                              : 'Customers will see a closed message before products load.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _isShopOpen,
+                    activeColor: Colors.green,
+                    onChanged: _isUpdatingShopStatus
+                        ? null
+                        : _toggleShopStatus,
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -972,7 +1107,7 @@ Container(
         const SizedBox(height: 14),
         // QR Image
         Image.network(
-          'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${Uri.encodeComponent('${AppConfig.customerShopBaseUrl}?id=${widget.owner['id']}')}',
+          'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${Uri.encodeComponent('${AppConfig.customerShopBaseUrl}?id=$_ownerId')}',
           width: 200, height: 200,
         ),
         const SizedBox(height: 8),

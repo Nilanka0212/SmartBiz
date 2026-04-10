@@ -115,7 +115,13 @@ class AdminDashboardController extends Controller {
 
     public function ownerDetail($id) {
         if ($r = $this->checkAuth()) return $r;
-        $owner    = Owner::findOrFail($id);
+        $owner    = Owner::withCount([
+                        'products',
+                        'orders',
+                        'orders as completed_orders_count' => function($query) {
+                            $query->where('status', 'completed');
+                        }
+                    ])->findOrFail($id);
         $products = Product::where('owner_id', $id)
                             ->latest()->get();
         return view('admin.owner_detail',

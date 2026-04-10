@@ -148,7 +148,7 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
 
     final ranked = totals.values.toList()
       ..sort((a, b) => b.quantity.compareTo(a.quantity));
-    return ranked.take(5).toList();
+    return ranked.take(3).toList();
   }
 
   List<_DailyPoint> _buildDailyPoints(List<Map<String, dynamic>> orders) {
@@ -598,7 +598,12 @@ Widget _salesChartCard() {
                   sideTitles: SideTitles(
                     showTitles: true,
                     reservedSize: 28,
+                    interval: 1,
                     getTitlesWidget: (value, meta) {
+                      if ((value - value.roundToDouble()).abs() > 0.001) {
+                        return const SizedBox();
+                      }
+
                       final index = value.toInt();
                       if (index < 0 || index >= _dailyPoints.length) {
                         return const SizedBox();

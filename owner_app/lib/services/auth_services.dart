@@ -32,6 +32,13 @@ class AuthService {
     return jsonDecode(ownerStr);
   }
 
+  static Future<void> updateOwner(
+    Map<String, dynamic> owner,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_ownerKey, jsonEncode(owner));
+  }
+
   // ── Get saved token ──
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
