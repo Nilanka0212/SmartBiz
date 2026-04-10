@@ -3,16 +3,43 @@ require_once 'config/database.php';
 
 $owner_id = intval($_GET['id'] ?? 0);
 
+function renderShopStatusMessage(string $message): void {
+    echo '<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop Unavailable</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div class="products-container" style="min-height:100vh;display:flex;align-items:center;justify-content:center;">
+        <div class="empty-state" style="max-width:420px;">
+            <div class="icon">Shop</div>
+            <p>' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>
+        </div>
+    </div>
+</body>
+</html>';
+    exit;
+}
+
 if (!$owner_id) {
-    die('<h2 style="text-align:center;padding:40px;color:#888">
-         Invalid shop link</h2>');
+    renderShopStatusMessage('Invalid shop link.');
 }
 
 $db = getDb();
 
-// Get owner info
 $ownerStmt = $db->prepare("
-    SELECT * FROM owners WHERE id = ? AND is_verified = 1
+    SELECT
+        o.*,
+        CASE
+            WHEN o.is_verified != 1 THEN 'unverified'
+            WHEN COALESCE(o.is_shop_open, 1) != 1 THEN 'closed'
+            ELSE 'open'
+        END AS shop_status
+    FROM owners o
+    WHERE o.id = ?
 ");
 $ownerStmt->bind_param("i", $owner_id);
 $ownerStmt->execute();
@@ -20,11 +47,20 @@ $owner = $ownerStmt->get_result()->fetch_assoc();
 $ownerStmt->close();
 
 if (!$owner) {
-    die('<h2 style="text-align:center;padding:40px;color:#888">
-         Shop not found or not active</h2>');
+    $db->close();
+    renderShopStatusMessage('Shop not found.');
 }
 
-// Get active products
+if (($owner['shop_status'] ?? 'closed') === 'unverified') {
+    $db->close();
+    renderShopStatusMessage('This shop is not available right now.');
+}
+
+if (($owner['shop_status'] ?? 'closed') === 'closed') {
+    $db->close();
+    renderShopStatusMessage('This shop is currently closed.');
+}
+
 $productsStmt = $db->prepare("
     SELECT * FROM products
     WHERE owner_id = ? AND status = 'active' AND is_active = 1
@@ -46,28 +82,33 @@ $db->close();
 </head>
 <body>
 
-<!-- ── Header ── -->
 <div class="shop-header">
     <div class="shop-info">
         <?php if ($owner['shop_image']): ?>
             <img src="../api/<?= htmlspecialchars($owner['shop_image']) ?>"
                  class="shop-image" alt="Shop">
         <?php else: ?>
-            <div class="shop-image-placeholder">🏪</div>
+            <div class="shop-image-placeholder">Shop</div>
         <?php endif; ?>
         <div>
             <h1><?= htmlspecialchars($owner['shop_name'] ?? $owner['name']) ?></h1>
-            <p>📍 <?= htmlspecialchars($owner['shop_location']) ?></p>
+            <p><?= htmlspecialchars($owner['shop_location']) ?></p>
         </div>
     </div>
-    <button class="cart-btn" onclick="openCart()">
-        🛒 Cart
-        <span class="cart-badge" id="cart-badge"
-              style="display:none">0</span>
-    </button>
+    <div style="display:flex;gap:10px;align-items:center">
+        <a href="order_history.php?id=<?= $owner_id ?>"
+           class="btn-outline"
+           style="padding:10px 14px;text-decoration:none;white-space:nowrap">
+            Order History
+        </a>
+        <button class="cart-btn" onclick="openCart()">
+            Cart
+            <span class="cart-badge" id="cart-badge"
+                  style="display:none">0</span>
+        </button>
+    </div>
 </div>
 
-<!-- ── Products ── -->
 <div class="products-container">
     <div class="section-title">
         Menu (<?= count($products) ?> items)
@@ -75,7 +116,7 @@ $db->close();
 
     <?php if (empty($products)): ?>
         <div class="empty-state">
-            <div class="icon">🍽️</div>
+            <div class="icon">Menu</div>
             <p>No products available yet</p>
         </div>
     <?php else: ?>
@@ -83,15 +124,13 @@ $db->close();
         <div class="product-card"
              data-product-id="<?= $product['id'] ?>">
 
-            <!-- Image -->
             <?php if ($product['image']): ?>
                 <img src="../api/<?= htmlspecialchars($product['image']) ?>"
                      class="product-image" alt="<?= htmlspecialchars($product['name']) ?>">
             <?php else: ?>
-                <div class="product-image-placeholder">🍽️</div>
+                <div class="product-image-placeholder">Item</div>
             <?php endif; ?>
 
-            <!-- Info -->
             <div class="product-info">
                 <div class="product-name">
                     <?= htmlspecialchars($product['name']) ?>
@@ -106,7 +145,6 @@ $db->close();
                 </div>
             </div>
 
-            <!-- Add button -->
             <button class="add-btn"
                     id="add-<?= $product['id'] ?>"
                     onclick="Cart.add(
@@ -119,13 +157,12 @@ $db->close();
                         }
                     )">+</button>
 
-            <!-- Quantity control -->
             <div class="quantity-control"
                  id="qty-<?= $product['id'] ?>"
                  style="display:none">
                 <button class="qty-btn minus"
                         onclick="Cart.remove(<?= $product['id'] ?>)">
-                    −
+                    -
                 </button>
                 <span class="qty-count"
                       id="qtynum-<?= $product['id'] ?>">0</span>
@@ -145,12 +182,11 @@ $db->close();
     <?php endif; ?>
 </div>
 
-<!-- ── Cart Modal ── -->
 <div class="modal-overlay" id="cart-modal"
      onclick="if(event.target===this) closeCart()">
     <div class="modal-sheet">
         <div class="modal-handle"></div>
-        <div class="modal-title">🛒 Your Cart</div>
+        <div class="modal-title">Your Cart</div>
 
         <div id="cart-items"></div>
 
@@ -163,7 +199,7 @@ $db->close();
                 id="checkout-btn"
                 onclick="goToCheckout(<?= $owner_id ?>)"
                 disabled>
-            Proceed to Checkout →
+            Proceed to Checkout ->
         </button>
         <button class="btn-outline" onclick="closeCart()">
             Continue Shopping
@@ -171,7 +207,6 @@ $db->close();
     </div>
 </div>
 
-<!-- ── Toast ── -->
 <div class="toast" id="toast"></div>
 
 <script src="assets/js/cart.js"></script>

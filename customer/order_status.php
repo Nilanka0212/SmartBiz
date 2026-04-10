@@ -31,16 +31,11 @@ if (!$order) {
 $items = json_decode($order['items'], true);
 
 $statusInfo = [
-    'pending'   => ['icon' => '⏳', 'label' => 'Order Received',
-                    'msg'  => 'Your order has been received!'],
-    'preparing' => ['icon' => '👨‍🍳', 'label' => 'Preparing',
-                    'msg'  => 'Your order is being prepared!'],
-    'ready'     => ['icon' => '✅', 'label' => 'Ready!',
-                    'msg'  => 'Your order is ready for pickup!'],
-    'completed' => ['icon' => '🎉', 'label' => 'Completed',
-                    'msg'  => 'Order completed. Thank you!'],
-    'cancelled' => ['icon' => '❌', 'label' => 'Cancelled',
-                    'msg'  => 'Your order was cancelled.'],
+    'pending' => ['icon' => 'Pending', 'label' => 'Order Received', 'msg' => 'Your order has been received!'],
+    'preparing' => ['icon' => 'Preparing', 'label' => 'Preparing', 'msg' => 'Your order is being prepared!'],
+    'ready' => ['icon' => 'Ready', 'label' => 'Ready!', 'msg' => 'Your order is ready for pickup!'],
+    'completed' => ['icon' => 'Done', 'label' => 'Completed', 'msg' => 'Order completed. Thank you!'],
+    'cancelled' => ['icon' => 'Cancelled', 'label' => 'Cancelled', 'msg' => 'Your order was cancelled.'],
 ];
 
 $info = $statusInfo[$order['status']] ?? $statusInfo['pending'];
@@ -52,7 +47,6 @@ $info = $statusInfo[$order['status']] ?? $statusInfo['pending'];
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Order #<?= $order_id ?></title>
     <link rel="stylesheet" href="assets/css/style.css">
-    <!-- Auto refresh every 15 seconds -->
     <meta http-equiv="refresh" content="15">
 </head>
 <body>
@@ -67,8 +61,6 @@ $info = $statusInfo[$order['status']] ?? $statusInfo['pending'];
 </div>
 
 <div class="products-container">
-
-    <!-- Status card -->
     <div class="status-card">
         <div class="status-icon"><?= $info['icon'] ?></div>
         <span class="status-badge status-<?= $order['status'] ?>">
@@ -82,7 +74,6 @@ $info = $statusInfo[$order['status']] ?? $statusInfo['pending'];
         </p>
     </div>
 
-    <!-- Order details -->
     <div class="section-title">Order Details</div>
     <div style="background:white;border-radius:14px;
                 padding:16px;margin-bottom:16px;
@@ -109,14 +100,13 @@ $info = $statusInfo[$order['status']] ?? $statusInfo['pending'];
             <span>Rs. <?= number_format($order['total_price'], 2) ?></span>
         </div>
 
-        <!-- Payment status -->
         <div style="display:flex;justify-content:space-between;
                     padding:8px 0;border-top:1px solid #f0f0f0">
             <span style="color:#888;font-size:14px">Payment</span>
             <span style="font-size:14px;font-weight:600">
                 <?= ucfirst($order['payment_method']) ?>
                 <?php if ($order['payment_status'] === 'paid'): ?>
-                    <span style="color:green">✓ Paid</span>
+                    <span style="color:green">Paid</span>
                 <?php else: ?>
                     <span style="color:#ff8c00">Unpaid</span>
                 <?php endif; ?>
@@ -127,22 +117,34 @@ $info = $statusInfo[$order['status']] ?? $statusInfo['pending'];
         <div style="margin-top:10px;padding:10px;
                     background:#f8f9fa;border-radius:8px;
                     font-size:13px;color:#666">
-            📝 <?= htmlspecialchars($order['note']) ?>
+            Note: <?= htmlspecialchars($order['note']) ?>
         </div>
         <?php endif; ?>
     </div>
 
-    <!-- Order again -->
+    <a href="order_history.php?id=<?= intval($order['owner_id']) ?>"
+       class="btn-outline"
+       style="display:block;text-align:center;
+              text-decoration:none;margin-bottom:12px">
+        View Order History
+    </a>
+
     <a href="index.php?id=<?= $order['owner_id'] ?>"
        class="btn-outline"
        style="display:block;text-align:center;
               text-decoration:none">
-        Order Again 🛒
+        Order Again
     </a>
 </div>
 <script src="assets/js/cart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    OrderHistory.save({
+        id: <?= intval($order_id) ?>,
+        owner_id: <?= intval($order['owner_id']) ?>,
+        shop_name: <?= json_encode($order['shop_name'] ?? '') ?>
+    });
+
     Cart.clearIfMatchesShop(
         <?= $clear_shop_id ?: intval($order['owner_id']) ?>
     );

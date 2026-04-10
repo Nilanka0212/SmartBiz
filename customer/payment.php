@@ -16,7 +16,6 @@ $stmt->execute();
 $order = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-// Simulate payment confirmation
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $updateStmt = $db->prepare("
         UPDATE orders SET payment_status = 'paid' WHERE id = ?
@@ -44,29 +43,27 @@ $db->close();
 <div class="shop-header">
     <div class="shop-info">
         <div>
-            <h1>💳 Payment</h1>
+            <h1>Payment</h1>
             <p>Order #<?= $order_id ?></p>
         </div>
     </div>
 </div>
 
 <div class="products-container">
-
     <div style="background:white;border-radius:14px;
                 padding:24px;text-align:center;
                 box-shadow:0 2px 8px rgba(0,0,0,0.06);
                 margin-bottom:20px">
-        <div style="font-size:48px;margin-bottom:12px">💳</div>
+        <div style="font-size:48px;margin-bottom:12px">Pay</div>
         <h3 style="margin-bottom:8px">Amount to Pay</h3>
         <div style="font-size:32px;font-weight:700;
                     color:#ff8c00;margin-bottom:20px">
             Rs. <?= number_format($order['total_price'], 2) ?>
         </div>
 
-        <!-- Payment QR placeholder -->
         <div style="background:#f8f9fa;border-radius:12px;
                     padding:30px;margin-bottom:20px">
-            <div style="font-size:60px">📱</div>
+            <div style="font-size:60px">QR</div>
             <p style="color:#888;margin-top:8px;font-size:14px">
                 Scan QR code to pay<br>
                 (Payment gateway integration here)
@@ -80,7 +77,7 @@ $db->close();
 
     <form method="POST">
         <button type="submit" class="btn-primary">
-            ✅ Confirm Payment
+            Confirm Payment
         </button>
     </form>
 
@@ -90,10 +87,23 @@ $db->close();
               text-decoration:none">
         Pay later (Cash)
     </a>
+
+    <a href="order_history.php?id=<?= intval($order['owner_id']) ?>"
+       style="display:block;text-align:center;
+              margin-top:12px;color:#888;font-size:14px;
+              text-decoration:none">
+        View previous orders
+    </a>
 </div>
 <script src="assets/js/cart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    OrderHistory.save({
+        id: <?= intval($order_id) ?>,
+        owner_id: <?= intval($order['owner_id']) ?>,
+        shop_name: ''
+    });
+
     Cart.clearIfMatchesShop(<?= $clear_shop_id ?>);
 });
 </script>

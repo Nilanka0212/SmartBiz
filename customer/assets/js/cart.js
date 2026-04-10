@@ -183,6 +183,58 @@ const Cart = {
     }
 };
 
+const OrderHistory = {
+    storageKey: 'order_history',
+
+    load() {
+        const saved = localStorage.getItem(this.storageKey);
+        if (!saved) return [];
+
+        try {
+            const parsed = JSON.parse(saved);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    },
+
+    save(order) {
+        if (!order || !order.id) return;
+
+        const entry = {
+            id: String(order.id),
+            owner_id: order.owner_id ? String(order.owner_id) : '',
+            shop_name: order.shop_name || '',
+            saved_at: order.saved_at || new Date().toISOString()
+        };
+
+        const items = this.load().filter(existing =>
+            String(existing.id) !== entry.id
+        );
+
+        items.unshift(entry);
+        localStorage.setItem(
+            this.storageKey,
+            JSON.stringify(items.slice(0, 50))
+        );
+    },
+
+    getByShop(shopId) {
+        if (!shopId) return this.load();
+
+        return this.load().filter(order =>
+            String(order.owner_id) === String(shopId)
+        );
+    },
+
+    remove(orderId) {
+        const items = this.load().filter(order =>
+            String(order.id) !== String(orderId)
+        );
+        localStorage.setItem(this.storageKey, JSON.stringify(items));
+    }
+};
+
 // ── Toast notification ──
 function showToast(msg) {
     const toast = document.getElementById('toast');
