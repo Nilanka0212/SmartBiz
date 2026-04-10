@@ -108,10 +108,10 @@
                 </span>
             @endif
         </a>
-        <a href="/admin/summary"
+        <!-- <a href="/admin/summary"
            class="nav-link {{ request()->is('admin/summary*') ? 'active' : '' }}">
             <i class="fas fa-chart-bar"></i> Summary
-        </a>
+        </a> -->
         <hr style="border-color:rgba(255,255,255,0.2);margin:10px">
         <a href="/admin/logout" class="nav-link">
             <i class="fas fa-sign-out-alt"></i> Logout
