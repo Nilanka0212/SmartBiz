@@ -122,12 +122,12 @@ $info = $statusInfo[$order['status']] ?? $statusInfo['pending'];
         <?php endif; ?>
     </div>
 
-    <a href="order_history.php?id=<?= intval($order['owner_id']) ?>"
+    <!-- <a href="order_history.php?id=<?= intval($order['owner_id']) ?>"
        class="btn-outline"
        style="display:block;text-align:center;
               text-decoration:none;margin-bottom:12px">
         View Order History
-    </a>
+    </a> -->
 
     <a href="index.php?id=<?= $order['owner_id'] ?>"
        class="btn-outline"

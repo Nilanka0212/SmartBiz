@@ -186,13 +186,13 @@ $db->close();
             <div class="form-group">
                 <label>Your Name (Optional)</label>
                 <input type="text" name="customer_name"
-                       placeholder="Enter your name" >
+                       placeholder="Enter your name" required>
             </div>
 
             <div class="form-group">
                 <label>Phone Number (Optional)</label>
                 <input type="tel" name="customer_phone"
-                       placeholder="Enter phone number" >
+                       placeholder="Enter phone number" required>
             </div>
 
             <div class="form-group">

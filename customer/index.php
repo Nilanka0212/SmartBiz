@@ -30,16 +30,10 @@ if (!$owner_id) {
 
 $db = getDb();
 
+
+// Get owner info
 $ownerStmt = $db->prepare("
-    SELECT
-        o.*,
-        CASE
-            WHEN o.is_verified != 1 THEN 'unverified'
-            WHEN COALESCE(o.is_shop_open, 1) != 1 THEN 'closed'
-            ELSE 'open'
-        END AS shop_status
-    FROM owners o
-    WHERE o.id = ?
+    SELECT * FROM owners WHERE id = ? AND is_verified = 1
 ");
 $ownerStmt->bind_param("i", $owner_id);
 $ownerStmt->execute();
@@ -47,19 +41,39 @@ $owner = $ownerStmt->get_result()->fetch_assoc();
 $ownerStmt->close();
 
 if (!$owner) {
-    $db->close();
-    renderShopStatusMessage('Shop not found.');
+    die('<h2 style="text-align:center;padding:40px;color:#888">
+         Shop not found or not active</h2>');
 }
+// $ownerStmt = $db->prepare("
+//     SELECT
+//         o.*,
+//         CASE
+//             WHEN o.is_verified != 1 THEN 'unverified'
+//             WHEN COALESCE(o.is_shop_open, 1) != 1 THEN 'closed'
+//             ELSE 'open'
+//         END AS shop_status
+//     FROM owners o
+//     WHERE o.id = ?
+// ");
+// $ownerStmt->bind_param("i", $owner_id);
+// $ownerStmt->execute();
+// $owner = $ownerStmt->get_result()->fetch_assoc();
+// $ownerStmt->close();
 
-if (($owner['shop_status'] ?? 'closed') === 'unverified') {
-    $db->close();
-    renderShopStatusMessage('This shop is not available right now.');
-}
+// if (!$owner) {
+//     $db->close();
+//     renderShopStatusMessage('Shop not found.');
+// }
 
-if (($owner['shop_status'] ?? 'closed') === 'closed') {
-    $db->close();
-    renderShopStatusMessage('This shop is currently closed.');
-}
+// if (($owner['shop_status'] ?? 'closed') === 'unverified') {
+//     $db->close();
+//     renderShopStatusMessage('This shop is not available right now.');
+// }
+
+// if (($owner['shop_status'] ?? 'closed') === 'closed') {
+//     $db->close();
+//     renderShopStatusMessage('This shop is currently closed.');
+// }
 
 $productsStmt = $db->prepare("
     SELECT * FROM products
@@ -96,11 +110,11 @@ $db->close();
         </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center">
-        <a href="order_history.php?id=<?= $owner_id ?>"
+        <!-- <a href="order_history.php?id=<?= $owner_id ?>"
            class="btn-outline"
            style="padding:10px 14px;text-decoration:none;white-space:nowrap">
             Order History
-        </a>
+        </a> -->
         <button class="cart-btn" onclick="openCart()">
             Cart
             <span class="cart-badge" id="cart-badge"
