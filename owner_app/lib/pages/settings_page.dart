@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../main.dart';
 import '../providers/language_provider.dart';
+import '../services/api_service.dart';
 import '../services/auth_services.dart';
 import 'welcome_page.dart';
 
@@ -214,6 +215,167 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _showChangePasswordDialog() async {
+    final currentController = TextEditingController();
+    final newController = TextEditingController();
+    final confirmController = TextEditingController();
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool isSubmitting = false;
+    String? errorText;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: !isSubmitting,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> submit() async {
+              final currentPassword = currentController.text.trim();
+              final newPassword = newController.text.trim();
+              final confirmPassword = confirmController.text.trim();
+
+              if (currentPassword.isEmpty ||
+                  newPassword.isEmpty ||
+                  confirmPassword.isEmpty) {
+                setDialogState(() {
+                  errorText = 'Fill in all password fields';
+                });
+                return;
+              }
+
+              if (newPassword.length < 6) {
+                setDialogState(() {
+                  errorText = 'New password must be at least 6 characters';
+                });
+                return;
+              }
+
+              if (newPassword != confirmPassword) {
+                setDialogState(() {
+                  errorText = 'New password and confirmation do not match';
+                });
+                return;
+              }
+
+              setDialogState(() {
+                isSubmitting = true;
+                errorText = null;
+              });
+
+              final response = await ApiService.changePassword(
+                ownerId: _readValue('id', ''),
+                currentPassword: currentPassword,
+                newPassword: newPassword,
+              );
+
+              if (!mounted) {
+                return;
+              }
+
+              if (response['success'] == true) {
+                Navigator.pop(dialogContext);
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      response['data']['message']?.toString() ??
+                          'Password changed successfully',
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                return;
+              }
+
+              setDialogState(() {
+                isSubmitting = false;
+                errorText = response['data']['message']?.toString() ??
+                    'Unable to change password';
+              });
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              title: const Text('Change Password'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _passwordField(
+                      controller: currentController,
+                      label: 'Current password',
+                      obscureText: obscureCurrent,
+                      onToggle: () {
+                        setDialogState(() {
+                          obscureCurrent = !obscureCurrent;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _passwordField(
+                      controller: newController,
+                      label: 'New password',
+                      obscureText: obscureNew,
+                      onToggle: () {
+                        setDialogState(() {
+                          obscureNew = !obscureNew;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _passwordField(
+                      controller: confirmController,
+                      label: 'Confirm new password',
+                      obscureText: obscureConfirm,
+                      onToggle: () {
+                        setDialogState(() {
+                          obscureConfirm = !obscureConfirm;
+                        });
+                      },
+                    ),
+                    if (errorText != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        errorText!,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting ? null : submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(isSubmitting ? 'Saving...' : 'Update'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    currentController.dispose();
+    newController.dispose();
+    confirmController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final profilePhoto = (_owner['profile_photo'] ?? '').toString().trim();
@@ -401,6 +563,22 @@ class _SettingsPageState extends State<SettingsPage> {
                   language: AppLanguage.tamil,
                   title: 'Tamil',
                   subtitle: 'Use Tamil across the owner app',
+                  isLast: true,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _sectionCard(
+            title: 'Security',
+            subtitle: 'Keep this owner account protected.',
+            child: Column(
+              children: [
+                _infoTile(
+                  icon: Icons.lock_outline,
+                  title: 'Change password',
+                  value: 'Update your password securely',
+                  onTap: _showChangePasswordDialog,
                   isLast: true,
                 ),
               ],
@@ -627,6 +805,30 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         if (!isLast) const Divider(height: 10),
       ],
+    );
+  }
+
+  Widget _passwordField({
+    required TextEditingController controller,
+    required String label,
+    required bool obscureText,
+    required VoidCallback onToggle,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        suffixIcon: IconButton(
+          onPressed: onToggle,
+          icon: Icon(
+            obscureText ? Icons.visibility_off : Icons.visibility,
+          ),
+        ),
+      ),
     );
   }
 }

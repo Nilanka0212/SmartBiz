@@ -195,6 +195,69 @@ static Future<Map<String, dynamic>> resetPassword({
 
 
 // ── Get Products ──
+static Future<Map<String, dynamic>> changePassword({
+  required String ownerId,
+  required String currentPassword,
+  required String newPassword,
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/change_password.php'),
+    );
+    request.fields['owner_id'] = ownerId;
+    request.fields['current_password'] = currentPassword;
+    request.fields['new_password'] = newPassword;
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data = jsonDecode(responseBody);
+    return {
+      'success': data['success'] == true,
+      'data': data,
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'},
+    };
+  }
+}
+
+static Future<Map<String, dynamic>> createOwnerOrder({
+  required String ownerId,
+  required List<Map<String, dynamic>> items,
+  String? customerName,
+  String? customerPhone,
+  String? note,
+  String paymentMethod = 'cash',
+}) async {
+  try {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/orders/create_owner_order.php'),
+    );
+    request.fields['owner_id'] = ownerId;
+    request.fields['items'] = jsonEncode(items);
+    request.fields['customer_name'] = customerName ?? '';
+    request.fields['customer_phone'] = customerPhone ?? '';
+    request.fields['note'] = note ?? '';
+    request.fields['payment_method'] = paymentMethod;
+
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    final data = jsonDecode(responseBody);
+    return {
+      'success': data['success'] == true,
+      'data': data,
+    };
+  } catch (e) {
+    return {
+      'success': false,
+      'data': {'message': 'Connection error: $e'},
+    };
+  }
+}
+
 static Future<Map<String, dynamic>> getProducts({
   required String ownerId,
 }) async {
