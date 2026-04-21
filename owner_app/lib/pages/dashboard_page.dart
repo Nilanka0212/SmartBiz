@@ -7,6 +7,7 @@ import '../main.dart';
 import '../providers/language_provider.dart';
 import '../services/api_service.dart';
 import '../services/auth_services.dart';
+import 'create_order_page.dart';
 import 'daily_summary_page.dart';
 import 'orders_page.dart';
 import 'previous_orders_page.dart';
@@ -316,7 +317,7 @@ class _DashboardPageState extends State<DashboardPage> {
               backgroundColor: Colors.orange,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Confirm'),
+            child: const Text('Accept & Prepare'),
           ),
         ],
       ),
@@ -381,132 +382,16 @@ class _DashboardPageState extends State<DashboardPage> {
 
   // ── Create order dialog ──
   void _showCreateOrderDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(
-              top: Radius.circular(24)),
-        ),
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 24, right: 24, top: 16,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Handle bar
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Title
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.add_shopping_cart,
-                      color: Colors.orange),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(_createOrderTitle,
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold)),
-                    Text(_createOrderSubtitle,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.black45)),
-                  ],
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Info box
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: Colors.blue.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline,
-                      color: Colors.blue.shade700, size: 20),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'Create orders for customers who don\'t have the app or forgot their phone.',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.black54),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                          'Create Order page coming soon!'),
-                      backgroundColor: Colors.orange,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(12)),
-                ),
-                icon: const Icon(Icons.add),
-                label: Text(_createOrderBtnText,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15)),
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
+    Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateOrderPage(ownerId: _ownerId),
       ),
-    );
+    ).then((created) {
+      if (created == true) {
+        _fetchPendingOrders();
+      }
+    });
   }
 
   @override

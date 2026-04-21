@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:vibration/vibration.dart';
+
 import '../services/api_service.dart';
 import '../services/auth_services.dart';
 
@@ -11,23 +13,17 @@ class OrdersPage extends StatefulWidget {
   State<OrdersPage> createState() => _OrdersPageState();
 }
 
-class _OrdersPageState extends State<OrdersPage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  List<dynamic> _pendingOrders   = [];
-  List<dynamic> _preparingOrders = [];
-  bool _isLoading                = true;
-  String _ownerId                = '';
+class _OrdersPageState extends State<OrdersPage> {
+  List<dynamic> _openOrders = [];
+  bool _isLoading = true;
+  String _ownerId = '';
   Timer? _refreshTimer;
-  int _lastPendingCount          = 0;
+  int _lastPendingCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _loadOwnerAndOrders();
-
-    // Auto refresh every 15 seconds
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 15),
       (_) => _loadOrders(notify: true),
@@ -36,7 +32,6 @@ class _OrdersPageState extends State<OrdersPage>
 
   @override
   void dispose() {
-    _tabController.dispose();
     _refreshTimer?.cancel();
     super.dispose();
   }
@@ -54,96 +49,104 @@ class _OrdersPageState extends State<OrdersPage>
 
     final pendingResult = await ApiService.getOrders(
       ownerId: _ownerId,
-      status:  'pending',
+      status: 'pending',
     );
     final preparingResult = await ApiService.getOrders(
       ownerId: _ownerId,
-      status:  'preparing',
+      status: 'preparing',
     );
 
     final pendingData =
         Map<String, dynamic>.from(pendingResult['data']['data'] ?? {});
     final preparingData =
         Map<String, dynamic>.from(preparingResult['data']['data'] ?? {});
-    final newPending = pendingData['orders']
-        as List? ?? [];
+    final pendingOrders = List<dynamic>.from(pendingData['orders'] ?? []);
+    final preparingOrders =
+        List<dynamic>.from(preparingData['orders'] ?? []);
 
-    // ── Notify if new orders arrived ──
-    if (notify && newPending.length > _lastPendingCount) {
+    if (notify && pendingOrders.length > _lastPendingCount) {
       _notifyNewOrder();
     }
 
-    _lastPendingCount = newPending.length;
+    _lastPendingCount = pendingOrders.length;
 
-    if (mounted) {
-      setState(() {
-        _isLoading       = false;
-        _pendingOrders   = newPending;
-        _preparingOrders = preparingData['orders']
-            as List? ?? [];
-      });
-    }
+    final combinedOrders = [
+      ...pendingOrders,
+      ...preparingOrders,
+    ];
+
+    combinedOrders.sort((a, b) {
+      final aStatus = (a['status'] ?? '').toString();
+      final bStatus = (b['status'] ?? '').toString();
+      if (aStatus != bStatus) {
+        return aStatus == 'pending' ? -1 : 1;
+      }
+
+      final aDate = DateTime.tryParse('${a['created_at']}');
+      final bDate = DateTime.tryParse('${b['created_at']}');
+      if (aDate == null || bDate == null) return 0;
+      return bDate.compareTo(aDate);
+    });
+
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _openOrders = combinedOrders;
+    });
   }
 
   Future<void> _notifyNewOrder() async {
-    // Vibrate
     if (await Vibration.hasVibrator()) {
-      Vibration.vibrate(
-        pattern: [0, 500, 200, 500],
-      );
+      Vibration.vibrate(pattern: [0, 500, 200, 500]);
     }
 
-    // Show snackbar
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.notifications_active,
-                  color: Colors.white),
-              SizedBox(width: 10),
-              Text('New order received! 🎉',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold)),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10)),
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.notifications_active, color: Colors.white),
+            SizedBox(width: 10),
+            Text(
+              'New order received!',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
-      );
-    }
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
-  Future<void> _updateStatus(
-      String orderId, String status) async {
+  Future<void> _updateStatus(String orderId, String status) async {
     final result = await ApiService.updateOrderStatus(
       orderId: orderId,
-      status:  status,
+      status: status,
     );
 
     if (result['success'] == true) {
       await _loadOrders();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Order ${status == 'preparing'
-                    ? 'accepted!'
-                    : status == 'completed'
-                        ? 'completed!'
-                        : 'cancelled!'}'),
-            backgroundColor: status == 'completed'
-                ? Colors.green
-                : status == 'preparing'
-                    ? Colors.orange
-                    : Colors.red,
-            behavior: SnackBarBehavior.floating,
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'preparing'
+                ? 'Order accepted and moved to preparing'
+                : status == 'completed'
+                    ? 'Order finished successfully'
+                    : 'Order cancelled',
           ),
-        );
-      }
+          backgroundColor: status == 'preparing'
+              ? Colors.orange
+              : status == 'completed'
+                  ? Colors.green
+                  : Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -151,164 +154,110 @@ class _OrdersPageState extends State<OrdersPage>
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // ── Tab bar ──
         Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
           color: Colors.white,
-          child: TabBar(
-            controller: _tabController,
-            labelColor: Colors.orange,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: Colors.orange,
-            labelStyle: const TextStyle(
-                fontWeight: FontWeight.bold),
-            tabs: [
-              Tab(
-                child: Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.center,
-                  children: [
-                    const Text('Pending'),
-                    if (_pendingOrders.isNotEmpty) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets
-                            .symmetric(
-                            horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius:
-                              BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${_pendingOrders.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+          child: Row(
+            children: [
+              const Text(
+                'Open Orders',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              Tab(
-                child: Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.center,
-                  children: [
-                    const Text('Preparing'),
-                    if (_preparingOrders.isNotEmpty) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets
-                            .symmetric(
-                            horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.orange,
-                          borderRadius:
-                              BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${_preparingOrders.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+              const SizedBox(width: 10),
+              if (_openOrders.isNotEmpty)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${_openOrders.length}',
+                    style: const TextStyle(
+                      color: Colors.orange,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              const Spacer(),
+              const Text(
+                'Pending and preparing together',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.black45,
                 ),
               ),
             ],
           ),
         ),
-
-        // ── Tab views ──
         Expanded(
           child: _isLoading
               ? const Center(
-                  child: CircularProgressIndicator(
-                      color: Colors.orange))
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    // Pending orders
-                    _ordersList(
-                      orders:    _pendingOrders,
-                      emptyIcon: '⏳',
-                      emptyText: 'No pending orders',
-                      isPending: true,
-                    ),
-                    // Preparing orders
-                    _ordersList(
-                      orders:    _preparingOrders,
-                      emptyIcon: '👨‍🍳',
-                      emptyText: 'No orders being prepared',
-                      isPending: false,
-                    ),
-                  ],
-                ),
+                  child: CircularProgressIndicator(color: Colors.orange),
+                )
+              : _ordersList(),
         ),
       ],
     );
   }
 
-  Widget _ordersList({
-    required List<dynamic> orders,
-    required String emptyIcon,
-    required String emptyText,
-    required bool isPending,
-  }) {
-    if (orders.isEmpty) {
-      return Center(
+  Widget _ordersList() {
+    if (_openOrders.isEmpty) {
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(emptyIcon,
-                style: const TextStyle(fontSize: 60)),
-            const SizedBox(height: 16),
-            Text(emptyText,
-                style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black54)),
-            const SizedBox(height: 8),
-            const Text('Pull down to refresh',
-                style: TextStyle(color: Colors.black45)),
+            Icon(Icons.receipt_long, size: 56, color: Colors.black26),
+            SizedBox(height: 16),
+            Text(
+              'No open orders',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black54,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Pull down to refresh',
+              style: TextStyle(color: Colors.black45),
+            ),
           ],
         ),
       );
     }
 
     return RefreshIndicator(
-      onRefresh: () => _loadOrders(),
+      onRefresh: _loadOrders,
       color: Colors.orange,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: orders.length,
+        itemCount: _openOrders.length,
         itemBuilder: (context, index) =>
-            _orderCard(orders[index], isPending),
+            _orderCard(Map<String, dynamic>.from(_openOrders[index])),
       ),
     );
   }
 
-  Widget _orderCard(
-      Map<String, dynamic> order, bool isPending) {
+  Widget _orderCard(Map<String, dynamic> order) {
     final items = (order['items_list'] ?? order['items']) as List? ?? [];
     final orderId = order['id'].toString();
+    final status = (order['status'] ?? 'pending').toString();
+    final isPending = status == 'pending';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: isPending
-            ? Border.all(
-                color: Colors.orange.shade200)
-            : null,
+        border: Border.all(
+          color: isPending ? Colors.orange.shade200 : Colors.blue.shade100,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -319,13 +268,10 @@ class _OrdersPageState extends State<OrdersPage>
       ),
       child: Column(
         children: [
-          // ── Order header ──
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: isPending
-                  ? Colors.orange.shade50
-                  : Colors.blue.shade50,
+              color: isPending ? Colors.orange.shade50 : Colors.blue.shade50,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -336,24 +282,18 @@ class _OrdersPageState extends State<OrdersPage>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isPending
-                        ? Colors.orange
-                        : Colors.blue,
-                    borderRadius:
-                        BorderRadius.circular(8),
+                    color: isPending ? Colors.orange : Colors.blue,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
-                    isPending
-                        ? Icons.pending_actions
-                        : Icons.restaurant,
+                    isPending ? Icons.pending_actions : Icons.restaurant,
                     color: Colors.white,
                     size: 18,
                   ),
                 ),
                 const SizedBox(width: 10),
                 Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Order #$orderId',
@@ -363,8 +303,7 @@ class _OrdersPageState extends State<OrdersPage>
                       ),
                     ),
                     Text(
-                      _formatTime(
-                          order['created_at'] ?? ''),
+                      _formatTime(order['created_at'] ?? ''),
                       style: const TextStyle(
                         color: Colors.black45,
                         fontSize: 12,
@@ -373,7 +312,23 @@ class _OrdersPageState extends State<OrdersPage>
                   ],
                 ),
                 const Spacer(),
-                // Total
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isPending ? Colors.orange : Colors.blue,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    isPending ? 'Pending' : 'Preparing',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
                 Text(
                   'Rs. ${double.parse(order['total_price'].toString()).toStringAsFixed(2)}',
                   style: const TextStyle(
@@ -385,68 +340,60 @@ class _OrdersPageState extends State<OrdersPage>
               ],
             ),
           ),
-
-          // ── Order items ──
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Items list
                 ...items.map((item) => Padding(
-                  padding: const EdgeInsets.only(
-                      bottom: 6),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 24, height: 24,
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius:
-                              BorderRadius.circular(6),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${item['qty']}',
-                            style: const TextStyle(
-                              color: Colors.orange,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${item['qty']}',
+                                style: const TextStyle(
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              item['name'] ?? '',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                          Text(
+                            'Rs. ${(item['price'] * item['qty']).toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          item['name'] ?? '',
-                          style: const TextStyle(
-                              fontSize: 14),
-                        ),
-                      ),
-                      Text(
-                        'Rs. ${(item['price'] * item['qty']).toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-
-                // Customer info
+                    )),
                 if (order['customer_name'] != null &&
-                    order['customer_name']
-                        .toString()
-                        .isNotEmpty) ...[
+                    order['customer_name'].toString().isNotEmpty) ...[
                   const Divider(height: 16),
                   Row(
                     children: [
-                      const Icon(Icons.person_outline,
-                          size: 14,
-                          color: Colors.black45),
+                      const Icon(
+                        Icons.person_outline,
+                        size: 14,
+                        color: Colors.black45,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         order['customer_name'],
@@ -455,17 +402,17 @@ class _OrdersPageState extends State<OrdersPage>
                           fontSize: 13,
                         ),
                       ),
-                      if (order['customer_phone'] !=
-                              null &&
-                          order['customer_phone']
-                              .toString()
-                              .isNotEmpty) ...[
-                        const Text(' · ',
-                            style: TextStyle(
-                                color: Colors.black45)),
-                        const Icon(Icons.phone,
-                            size: 14,
-                            color: Colors.black45),
+                      if (order['customer_phone'] != null &&
+                          order['customer_phone'].toString().isNotEmpty) ...[
+                        const Text(
+                          ' · ',
+                          style: TextStyle(color: Colors.black45),
+                        ),
+                        const Icon(
+                          Icons.phone,
+                          size: 14,
+                          color: Colors.black45,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           order['customer_phone'],
@@ -478,26 +425,21 @@ class _OrdersPageState extends State<OrdersPage>
                     ],
                   ),
                 ],
-
-                // Note
-                if (order['note'] != null &&
-                    order['note']
-                        .toString()
-                        .isNotEmpty) ...[
+                if (order['note'] != null && order['note'].toString().isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade50,
-                      borderRadius:
-                          BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       children: [
                         const Icon(
-                            Icons.note_outlined,
-                            size: 14,
-                            color: Colors.black45),
+                          Icons.note_outlined,
+                          size: 14,
+                          color: Colors.black45,
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -515,94 +457,58 @@ class _OrdersPageState extends State<OrdersPage>
               ],
             ),
           ),
-
-          // ── Action buttons ──
           Container(
-            padding: const EdgeInsets.fromLTRB(
-                14, 0, 14, 14),
-            child: isPending
-                ? Row(
-                    children: [
-                      // Accept button
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton.icon(
-                          onPressed: () =>
-                              _updateStatus(
-                                  orderId, 'preparing'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                Colors.orange,
-                            foregroundColor:
-                                Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(
-                                      10),
-                            ),
-                          ),
-                          // icon: const Icon(
-                          //     Icons.check, size: 18),
-                          label: const Text(
-                              'Accept & Prepare'),
-                        ),
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _updateStatus(
+                      orderId,
+                      isPending ? 'preparing' : 'completed',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isPending ? Colors.orange : Colors.green,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(width: 8),
-                      // Reject button
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () =>
-                              _showCancelDialog(
-                                  orderId),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                                color: Colors.red),
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(
-                                      10),
-                            ),
-                          ),
-                          // icon: const Icon(
-                              // Icons.close,
-                              // color: Colors.red,
-                              // size: 18),
-                          label: const Text(
-                              'Cancel',
-                              style: TextStyle(
-                                  color: Colors.red)),
-                        ),
-                      ),
-                    ],
-                  )
-                : SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () =>
-                          _updateStatus(
-                              orderId, 'completed'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets
-                            .symmetric(vertical: 12),
-                      ),
-                      icon: const Icon(
-                          Icons.check_circle,
-                          size: 20),
-                      label: const Text(
-                        'Order Finished ✓',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    icon: Icon(
+                      isPending ? Icons.local_dining : Icons.check_circle,
+                      size: 20,
+                    ),
+                    label: Text(
+                      isPending ? 'Accept & Prepare' : 'Order Finished',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
+                ),
+                if (isPending) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _showCancelDialog(orderId),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.red),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -613,26 +519,24 @@ class _OrdersPageState extends State<OrdersPage>
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Cancel Order?'),
-        content: const Text(
-            'Are you sure you want to cancel this order?'),
+        content: const Text('Are you sure you want to cancel this order?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('No',
-                style: TextStyle(color: Colors.grey)),
+            child: const Text('No', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _updateStatus(orderId, 'cancelled');
             },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red),
-            child: const Text('Yes, Cancel',
-                style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text(
+              'Yes, Cancel',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
