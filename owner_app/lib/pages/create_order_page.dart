@@ -92,6 +92,28 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
   }
 
   Future<void> _submitOrder() async {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Customer name is required'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_phoneController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Phone number is required'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     if (_quantities.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -186,7 +208,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                         children: [
                           _sectionCard(
                             title: 'Customer Details',
-                            subtitle: 'These fields are optional for walk-in orders.',
+                            subtitle: 'Customer name and phone number are required.',
                             child: Column(
                               children: [
                                 _field(

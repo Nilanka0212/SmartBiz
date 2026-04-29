@@ -72,7 +72,7 @@
                             </span>
                         </td>
                         <td>
-                            <a href="/admin/owners/{{ $owner->id }}"
+                            <a href="{{ route('admin.owner.detail', $owner->id) }}"
                                class="btn btn-sm btn-outline-warning">
                                 <i class="fas fa-eye"></i> View
                             </a>
