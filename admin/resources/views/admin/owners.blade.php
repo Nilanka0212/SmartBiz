@@ -20,6 +20,7 @@
                         <th>Category</th>
                         <th>Location</th>
                         <th>Verified</th>
+                        <th>License</th>
                         <th>Products</th>
                         <th>Action</th>
                     </tr>
@@ -65,6 +66,76 @@
                             @else
                                 <span class="badge bg-danger">Unverified</span>
                             @endif
+                        </td>
+                        <td>
+                            @php
+                                $licenseStatus = $owner->license_status ?? 'pending';
+                                $isActive = $licenseStatus === 'active' && 
+                                    ($owner->license_end_date ? $owner->license_end_date->gte(now()->toDateString()) : false);
+                                $isExpiringSoon = $licenseStatus === 'active' && 
+                                    $owner->license_end_date && 
+                                    $owner->license_end_date->gte(now()->toDateString()) &&
+                                    $owner->license_end_date->diffInDays(now()) <= 7;
+                            @endphp
+                            <div class="dropdown">
+                                <button class="btn btn-sm dropdown-toggle {{ $isActive ? 'btn-success' : ($licenseStatus === 'expired' ? 'btn-danger' : ($licenseStatus === 'cancelled' ? 'btn-secondary' : 'btn-warning')) }}" 
+                                        type="button" 
+                                        data-bs-toggle="dropdown" 
+                                        aria-expanded="false"
+                                        id="licenseDropdown{{ $owner->id }}">
+                                    @if($isActive)
+                                        <i class="fas fa-check-circle me-1"></i> Active
+                                        @if($isExpiringSoon)
+                                            <span class="badge bg-warning text-dark ms-1">!</span>
+                                        @endif
+                                    @elseif($licenseStatus === 'expired')
+                                        <i class="fas fa-times-circle me-1"></i> Expired
+                                    @elseif($licenseStatus === 'cancelled')
+                                        <i class="fas fa-ban me-1"></i> Cancelled
+                                    @else
+                                        <i class="fas fa-clock me-1"></i> Pending
+                                    @endif
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="licenseDropdown{{ $owner->id }}">
+                                    <li>
+                                        <form action="{{ route('admin.license.activate') }}" method="POST" class="license-form" data-owner-id="{{ $owner->id }}">
+                                            @csrf
+                                            <input type="hidden" name="owner_id" value="{{ $owner->id }}">
+                                            <input type="hidden" name="amount" value="1000">
+                                            <input type="hidden" name="payment_method" value="admin_manual">
+                                            <input type="hidden" name="transaction_id" value="MANUAL-{{ time() }}">
+                                            <input type="hidden" name="start_date" value="{{ date('Y-m-d') }}">
+                                            <input type="hidden" name="end_date" value="{{ date('Y-m-d', strtotime('+1 month')) }}">
+                                            <button type="submit" class="dropdown-item activate-license-btn">
+                                                <i class="fas fa-play me-2 text-success"></i> Activate License
+                                            </button>
+                                        </form>
+                                    </li>
+                                    @if($licenseStatus === 'active' || $licenseStatus === 'pending')
+                                    <li>
+                                        <form action="{{ route('admin.license.deactivate') }}" method="POST" class="license-form" data-owner-id="{{ $owner->id }}">
+                                            @csrf
+                                            <input type="hidden" name="owner_id" value="{{ $owner->id }}">
+                                            <input type="hidden" name="reason" value="Manually deactivated by admin">
+                                            <button type="submit" class="dropdown-item deactivate-license-btn">
+                                                <i class="fas fa-stop me-2 text-danger"></i> Deactivate License
+                                            </button>
+                                        </form>
+                                    </li>
+                                    @endif
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('admin.license.status', $owner->id) }}">
+                                            <i class="fas fa-info-circle me-2"></i> View Details
+                                        </a>
+                                    </li>
+                                </ul>
+                                @if($isActive && $owner->license_end_date)
+                                    <div class="small text-muted mt-1">
+                                        Exp: {{ $owner->license_end_date->format('M d, Y') }}
+                                    </div>
+                                @endif
+                            </div>
                         </td>
                         <td>
                             <span class="badge bg-primary">

@@ -138,11 +138,65 @@
         </div>
     @endif
 
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show">
+            {{ session('error') }}
+            <button type="button" class="btn-close"
+                    data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
     @yield('content')
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- License Toggle Scripts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle license activation/deactivation
+    document.querySelectorAll('.license-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const form = this;
+            const ownerId = form.dataset.ownerId;
+            const isActivate = form.querySelector('.activate-license-btn') !== null;
+            const actionText = isActivate ? 'activate' : 'deactivate';
+            
+            if (!confirm('Are you sure you want to ' + actionText + ' this license?')) {
+                return;
+            }
+            
+            const formData = new FormData(form);
+            
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.message || 'Something went wrong'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            });
+        });
+    });
+});
+</script>
+
 @yield('scripts')
 </body>
 </html>

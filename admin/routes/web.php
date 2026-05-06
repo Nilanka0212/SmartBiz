@@ -57,3 +57,24 @@ Route::get('/admin/summary',
 Route::get('/admin/orders',
     [AdminDashboardController::class, 'orders'])
     ->name('admin.orders');
+
+// ── License routes ──
+Route::post('/admin/license/activate',
+    [App\Http\Controllers\Admin\LicenseController::class, 'activate'])
+    ->name('admin.license.activate');
+
+Route::post('/admin/license/deactivate',
+    [App\Http\Controllers\Admin\LicenseController::class, 'deactivate'])
+    ->name('admin.license.deactivate');
+
+Route::get('/admin/license/{ownerId}',
+    [App\Http\Controllers\Admin\LicenseController::class, 'status'])
+    ->name('admin.license.status');
+
+Route::get('/admin/licenses',
+    [App\Http\Controllers\Admin\LicenseController::class, 'all'])
+    ->name('admin.licenses');
+
+Route::get('/admin/license/check-expired',
+    [App\Http\Controllers\Admin\LicenseController::class, 'checkExpired'])
+    ->name('admin.license.check-expired');
