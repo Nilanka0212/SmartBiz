@@ -79,10 +79,18 @@ function determineStatus($textRisk) {
     }
 }
 
-$product_id  = trim($_REQUEST['product_id'] ?? '');
-$name        = trim($_REQUEST['name'] ?? '');
-$price       = trim($_REQUEST['price'] ?? '');
+// ── Read inputs ──
+$product_id  = trim($_REQUEST['product_id']  ?? '');
+$name        = trim($_REQUEST['name']        ?? '');
+$price       = trim($_REQUEST['price']       ?? '');
 $description = trim($_REQUEST['description'] ?? '');
+$cost_price  = trim($_REQUEST['cost_price']  ?? '');
+$sell_price  = trim($_REQUEST['sell_price']  ?? '');
+
+// Fall back: if sell_price not sent, use price
+if (empty($sell_price)) $sell_price = $price;
+// Fall back: if cost_price not sent, default to 0
+if (empty($cost_price)) $cost_price = '0';
 
 if (empty($product_id) || empty($name) || empty($price)) {
     echo json_encode([
@@ -158,7 +166,6 @@ if ($decision['status'] === 'rejected' && $newImage) {
     if (file_exists($uploadDir . $filename)) {
         unlink($uploadDir . $filename);
     }
-    // Restore old image
     $image = $imgRow['image'] ?? null;
 }
 
@@ -167,12 +174,14 @@ if ($image) {
     $stmt = $conn->prepare("
         UPDATE products
         SET name=?, price=?, description=?,
+            cost_price=?, sell_price=?,
             image=?, status=?, is_active=?
         WHERE id=?
     ");
     $stmt->bind_param(
-        "sdsssi i",
+        "sdssdssii",
         $name, $price, $description,
+        $cost_price, $sell_price,
         $image, $decision['status'],
         $decision['is_active'], $product_id
     );
@@ -180,12 +189,14 @@ if ($image) {
     $stmt = $conn->prepare("
         UPDATE products
         SET name=?, price=?, description=?,
+            cost_price=?, sell_price=?,
             status=?, is_active=?
         WHERE id=?
     ");
     $stmt->bind_param(
-        "sdssii",
+        "sdssdsii",
         $name, $price, $description,
+        $cost_price, $sell_price,
         $decision['status'],
         $decision['is_active'], $product_id
     );

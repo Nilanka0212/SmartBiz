@@ -136,6 +136,16 @@ class _ProductListPageState extends State<ProductListPage> {
     final isApproved = status == 'active' ||
                        status == 'inactive';
 
+    // ── Price calculations ──
+    final costPrice = double.tryParse(
+            product['cost_price']?.toString() ?? '0') ??
+        0.0;
+    final sellPrice = double.tryParse(
+            product['sell_price']?.toString() ??
+            product['price']?.toString() ?? '0') ??
+        0.0;
+    final profit = sellPrice - costPrice;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -164,7 +174,7 @@ class _ProductListPageState extends State<ProductListPage> {
                       AppConfig.apiAssetUrl(product['image'].toString()),
                       width: 60, height: 60,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, _) =>
+                      errorBuilder: (_, __, ___) =>
                           _imagePlaceholder(),
                     )
                   : _imagePlaceholder(),
@@ -179,13 +189,47 @@ class _ProductListPageState extends State<ProductListPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 4),
+                // ── Sell price ──
                 Text(
-                  'Rs. ${product['price']}',
+                  'Sell: Rs. ${sellPrice.toStringAsFixed(2)}',
                   style: const TextStyle(
                     color: Colors.orange,
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
+                ),
+                // ── Cost price ──
+                Text(
+                  'Cost: Rs. ${costPrice.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color: Colors.black54,
+                    fontSize: 12,
+                  ),
+                ),
+                // ── Profit per unit ──
+                Row(
+                  children: [
+                    Icon(
+                      profit >= 0
+                          ? Icons.trending_up
+                          : Icons.trending_down,
+                      size: 12,
+                      color: profit >= 0
+                          ? Colors.green
+                          : Colors.red,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      'Profit: Rs. ${profit.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        color: profit >= 0
+                            ? Colors.green
+                            : Colors.red,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
                 if (product['description'] != null &&
                     product['description']
@@ -388,7 +432,8 @@ class AddEditProductPage extends StatefulWidget {
 class _AddEditProductPageState
     extends State<AddEditProductPage> {
   final _nameController        = TextEditingController();
-  final _priceController       = TextEditingController();
+  final _costPriceController   = TextEditingController();
+  final _sellPriceController   = TextEditingController();
   final _descriptionController = TextEditingController();
   final _formKey               = GlobalKey<FormState>();
   final _imagePicker           = ImagePicker();
@@ -403,8 +448,11 @@ class _AddEditProductPageState
     if (_isEditing) {
       _nameController.text =
           widget.product!['name'] ?? '';
-      _priceController.text =
-          widget.product!['price'].toString();
+      _costPriceController.text =
+          widget.product!['cost_price']?.toString() ?? '0';
+      _sellPriceController.text =
+          (widget.product!['sell_price'] ??
+           widget.product!['price'])?.toString() ?? '0';
       _descriptionController.text =
           widget.product!['description'] ?? '';
     }
@@ -413,9 +461,21 @@ class _AddEditProductPageState
   @override
   void dispose() {
     _nameController.dispose();
-    _priceController.dispose();
+    _costPriceController.dispose();
+    _sellPriceController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  // Computed profit margin shown in real-time
+  double get _profit {
+    final cost = double.tryParse(
+            _costPriceController.text.trim()) ??
+        0.0;
+    final sell = double.tryParse(
+            _sellPriceController.text.trim()) ??
+        0.0;
+    return sell - cost;
   }
 
   Future<void> _pickImage() async {
@@ -439,7 +499,9 @@ class _AddEditProductPageState
       result = await ApiService.updateProduct(
         productId:   widget.product!['id'].toString(),
         name:        _nameController.text.trim(),
-        price:       _priceController.text.trim(),
+        price:       _sellPriceController.text.trim(),   // keep legacy 'price' field
+        costPrice:   _costPriceController.text.trim(),
+        sellPrice:   _sellPriceController.text.trim(),
         description: _descriptionController.text.trim(),
         imageBytes:  _imageBytes,
         imageName:   'product.jpg',
@@ -448,7 +510,9 @@ class _AddEditProductPageState
       result = await ApiService.addProduct(
         ownerId:     widget.ownerId,
         name:        _nameController.text.trim(),
-        price:       _priceController.text.trim(),
+        price:       _sellPriceController.text.trim(),   // keep legacy 'price' field
+        costPrice:   _costPriceController.text.trim(),
+        sellPrice:   _sellPriceController.text.trim(),
         description: _descriptionController.text.trim(),
         imageBytes:  _imageBytes,
         imageName:   'product.jpg',
@@ -862,7 +926,7 @@ class _AddEditProductPageState
                                       ),
                                       fit: BoxFit.cover,
                                       errorBuilder:
-                                          (_, __, _) =>
+                                          (_, __, ___) =>
                                               _imagePlaceholderWidget(),
                                     ),
                                   )
@@ -895,27 +959,95 @@ class _AddEditProductPageState
 
                   const SizedBox(height: 16),
 
-                  // ── Price ──
-                  _label('Price (Rs.)'),
+                  // ── Cost Price ──
+                  _label('Cost Price (Rs.)'),
                   const SizedBox(height: 8),
                   TextFormField(
-                    controller: _priceController,
+                    controller: _costPriceController,
                     keyboardType:
                         const TextInputType.numberWithOptions(
                             decimal: true),
                     decoration: _inputDecoration(
-                        'Enter price',
-                        Icons.attach_money),
+                        'Price you paid / production cost',
+                        Icons.shopping_basket),
+                    onChanged: (_) => setState(() {}),
                     validator: (v) {
                       if (v!.trim().isEmpty) {
-                        return 'Enter price';
+                        return 'Enter cost price';
                       }
-                      if (double.tryParse(v.trim()) ==
-                          null) {
-                        return 'Enter valid price';
+                      if (double.tryParse(v.trim()) == null) {
+                        return 'Enter a valid number';
                       }
                       return null;
                     },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ── Sell Price ──
+                  _label('Sell Price (Rs.)'),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _sellPriceController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(
+                            decimal: true),
+                    decoration: _inputDecoration(
+                        'Price shown to customers',
+                        Icons.attach_money),
+                    onChanged: (_) => setState(() {}),
+                    validator: (v) {
+                      if (v!.trim().isEmpty) {
+                        return 'Enter sell price';
+                      }
+                      if (double.tryParse(v.trim()) == null) {
+                        return 'Enter a valid number';
+                      }
+                      return null;
+                    },
+                  ),
+
+                  // ── Live profit preview ──
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _profit >= 0
+                          ? Colors.green.shade50
+                          : Colors.red.shade50,
+                      borderRadius:
+                          BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _profit >= 0
+                            ? Colors.green.shade200
+                            : Colors.red.shade200,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _profit >= 0
+                              ? Icons.trending_up
+                              : Icons.trending_down,
+                          color: _profit >= 0
+                              ? Colors.green
+                              : Colors.red,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Profit per unit: Rs. ${_profit.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            color: _profit >= 0
+                                ? Colors.green
+                                : Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 16),
