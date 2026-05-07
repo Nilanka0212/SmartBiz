@@ -428,6 +428,7 @@ class ApiService {
 
   // ── Update Order Status ──
   static Future<Map<String, dynamic>> updateOrderStatus({
+    required String ownerId,
     required String orderId,
     required String status,
   }) async {
@@ -436,6 +437,7 @@ class ApiService {
         'POST',
         Uri.parse('$baseUrl/orders/update_order_status.php'),
       );
+      request.fields['owner_id'] = ownerId;
       request.fields['order_id'] = orderId;
       request.fields['status']   = status;
 

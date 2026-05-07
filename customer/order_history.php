@@ -94,6 +94,8 @@ function renderOrders(orders) {
             sum + Number(item.qty || 0), 0
         );
 
+        const orderNumber = order.order_number || String(order.id).padStart(4, '0');
+
         return `
             <a href="order_status.php?order_id=${order.id}"
                style="display:block;text-decoration:none;color:inherit">
@@ -101,7 +103,7 @@ function renderOrders(orders) {
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
                         <div>
                             <div style="font-size:16px;font-weight:700;margin-bottom:4px">
-                                Order #${order.id}
+                                Order #${escapeHtml(orderNumber)}
                             </div>
                             <div style="font-size:13px;color:#888">
                                 ${escapeHtml(order.shop_name || order.owner_name || '')}

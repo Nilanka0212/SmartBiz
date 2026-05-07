@@ -237,6 +237,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     _isDialogShowing = true;
     final order = _dialogQueue.removeAt(0);
+    final orderNumber = (order['order_number'] ?? order['id']).toString();
     final shouldConfirm = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -260,7 +261,7 @@ class _DashboardPageState extends State<DashboardPage> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'New Order #${order['id']}',
+                'New Order #$orderNumber',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -336,6 +337,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _confirmOrder(Map<String, dynamic> order) async {
     final response = await ApiService.updateOrderStatus(
+      ownerId: _ownerId,
       orderId: '${order['id']}',
       status: 'preparing',
     );
@@ -343,9 +345,10 @@ class _DashboardPageState extends State<DashboardPage> {
     if (!mounted) return;
 
     if (response['success'] == true) {
+      final orderNumber = (order['order_number'] ?? order['id']).toString();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Order #${order['id']} is now preparing'),
+          content: Text('Order #$orderNumber is now preparing'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),

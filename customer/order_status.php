@@ -28,7 +28,12 @@ if (!$order) {
          Order not found</h2>');
 }
 
-$items = json_decode($order['items'], true);
+$items = [];
+if (!empty($order['items_list'])) {
+    $items = (array) json_decode($order['items_list'], true);
+} elseif (!empty($order['items'])) {
+    $items = (array) json_decode($order['items'], true);
+}
 
 $statusInfo = [
     'pending' => ['icon' => 'Pending', 'label' => 'Order Received', 'msg' => 'Your order has been received!'],
@@ -39,13 +44,14 @@ $statusInfo = [
 ];
 
 $info = $statusInfo[$order['status']] ?? $statusInfo['pending'];
+$order_number = $order['order_number'] ?: str_pad((string) $order_id, 4, '0', STR_PAD_LEFT);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order #<?= $order_id ?></title>
+    <title>Order #<?= htmlspecialchars($order_number) ?></title>
     <link rel="stylesheet" href="assets/css/style.css">
     <meta http-equiv="refresh" content="15">
 </head>
@@ -54,7 +60,7 @@ $info = $statusInfo[$order['status']] ?? $statusInfo['pending'];
 <div class="shop-header">
     <div class="shop-info">
         <div>
-            <h1>Order #<?= $order_id ?></h1>
+            <h1>Order #<?= htmlspecialchars($order_number) ?></h1>
             <p><?= htmlspecialchars($order['shop_name'] ?? '') ?></p>
         </div>
     </div>

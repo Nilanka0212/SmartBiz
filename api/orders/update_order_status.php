@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once '../config/database.php';
 
 $order_id = trim($_REQUEST['order_id'] ?? '');
+$owner_id = intval($_REQUEST['owner_id'] ?? 0);
 $status   = trim($_REQUEST['status'] ?? '');
 
 $validStatuses = [
@@ -21,20 +22,42 @@ $validStatuses = [
 ];
 
 if (empty($order_id) ||
+    $owner_id <= 0 ||
     !in_array($status, $validStatuses)) {
     echo json_encode([
         'success' => false,
-        'message' => 'Invalid order ID or status'
+        'message' => 'Invalid owner ID, order ID, or status'
     ]);
     exit;
 }
 
 $conn = getConnection();
 
-$stmt = $conn->prepare("
-    UPDATE orders SET status = ? WHERE id = ?
+$checkStmt = $conn->prepare("
+    SELECT id FROM orders
+    WHERE id = ? AND owner_id = ?
+    LIMIT 1
 ");
-$stmt->bind_param("si", $status, $order_id);
+$checkStmt->bind_param("ii", $order_id, $owner_id);
+$checkStmt->execute();
+$orderExists = $checkStmt->get_result()->num_rows > 0;
+$checkStmt->close();
+
+if (!$orderExists) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Order not found for this owner'
+    ]);
+    $conn->close();
+    exit;
+}
+
+$stmt = $conn->prepare("
+    UPDATE orders
+    SET status = ?
+    WHERE id = ? AND owner_id = ?
+");
+$stmt->bind_param("sii", $status, $order_id, $owner_id);
 
 if ($stmt->execute()) {
     echo json_encode([

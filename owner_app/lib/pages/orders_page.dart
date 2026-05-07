@@ -123,6 +123,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   Future<void> _updateStatus(String orderId, String status) async {
     final result = await ApiService.updateOrderStatus(
+      ownerId: _ownerId,
       orderId: orderId,
       status: status,
     );
@@ -247,6 +248,7 @@ class _OrdersPageState extends State<OrdersPage> {
   Widget _orderCard(Map<String, dynamic> order) {
     final items = (order['items_list'] ?? order['items']) as List? ?? [];
     final orderId = order['id'].toString();
+    final orderNumber = (order['order_number'] ?? orderId).toString();
     final status = (order['status'] ?? 'pending').toString();
     final isPending = status == 'pending';
 
@@ -296,7 +298,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Order #$orderId',
+                      'Order #$orderNumber',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,

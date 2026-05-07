@@ -102,6 +102,7 @@ class _PreviousOrdersPageState
   Widget _orderCard(Map<String, dynamic> order) {
     final items = (order['items_list'] ?? order['items']) as List? ?? [];
     final isCompleted = order['status'] == 'completed';
+    final orderNumber = (order['order_number'] ?? order['id']).toString();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -143,7 +144,7 @@ class _PreviousOrdersPageState
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Order #${order['id']}',
+                  'Order #$orderNumber',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,

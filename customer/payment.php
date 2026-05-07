@@ -16,6 +16,14 @@ $stmt->execute();
 $order = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
+if (!$order) {
+    $db->close();
+    header('Location: index.php');
+    exit;
+}
+
+$order_number = $order['order_number'] ?: str_pad((string) $order_id, 4, '0', STR_PAD_LEFT);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $updateStmt = $db->prepare("
         UPDATE orders SET payment_status = 'paid' WHERE id = ?
@@ -44,7 +52,7 @@ $db->close();
     <div class="shop-info">
         <div>
             <h1>Payment</h1>
-            <p>Order #<?= $order_id ?></p>
+            <p>Order #<?= htmlspecialchars($order_number) ?></p>
         </div>
     </div>
 </div>

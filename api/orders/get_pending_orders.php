@@ -12,12 +12,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../config/database.php';
 
-$owner_id = trim($_REQUEST['owner_id'] ?? '');
+$owner_id = intval($_REQUEST['owner_id'] ?? 0);
 
-if (empty($owner_id)) {
+if ($owner_id <= 0) {
     echo json_encode([
         'success' => false,
-        'message' => 'Owner ID required'
+        'message' => 'Valid owner ID required'
     ]);
     exit;
 }
@@ -25,9 +25,14 @@ if (empty($owner_id)) {
 $conn = getConnection();
 
 $stmt = $conn->prepare("
-    SELECT * FROM orders
-    WHERE owner_id = ? AND status = 'pending'
-    ORDER BY created_at DESC
+    SELECT
+        o.*,
+        ow.shop_name AS order_shop_name,
+        ow.name AS order_owner_name
+    FROM orders o
+    INNER JOIN owners ow ON ow.id = o.owner_id
+    WHERE o.owner_id = ? AND o.status = 'pending'
+    ORDER BY o.created_at DESC
 ");
 $stmt->bind_param("i", $owner_id);
 $stmt->execute();
