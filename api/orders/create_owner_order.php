@@ -121,15 +121,37 @@ $itemsJson = json_encode($orderItems);
 $paymentStatus = $paymentMethod === 'online' ? 'pending' : 'paid';
 $status = 'pending';
 
+$conn->begin_transaction();
+
+$ownerLockStmt = $conn->prepare("SELECT id FROM owners WHERE id = ? FOR UPDATE");
+$ownerLockStmt->bind_param("i", $ownerId);
+$ownerLockStmt->execute();
+$ownerLockStmt->close();
+
+$orderNumberStmt = $conn->prepare("
+    SELECT order_number
+    FROM orders
+    WHERE owner_id = ? AND order_number IS NOT NULL
+    ORDER BY CAST(order_number AS UNSIGNED) DESC, id DESC
+    LIMIT 1
+");
+$orderNumberStmt->bind_param("i", $ownerId);
+$orderNumberStmt->execute();
+$lastOrder = $orderNumberStmt->get_result()->fetch_assoc();
+$orderNumberStmt->close();
+
+$orderNumber = (string) (intval($lastOrder['order_number'] ?? 0) + 1);
+
 $insert = $conn->prepare("
     INSERT INTO orders (
-        owner_id, customer_name, customer_phone, items,
+        owner_id, order_number, customer_name, customer_phone, items,
         total_price, payment_method, payment_status, note, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ");
 $insert->bind_param(
-    "isssdssss",
+    "issssdssss",
     $ownerId,
+    $orderNumber,
     $customerName,
     $customerPhone,
     $itemsJson,
@@ -141,12 +163,17 @@ $insert->bind_param(
 );
 
 if ($insert->execute()) {
+    $orderId = $conn->insert_id;
+    $conn->commit();
+
     echo json_encode([
         'success' => true,
         'message' => 'Order created successfully',
-        'order_id' => $conn->insert_id,
+        'order_id' => $orderId,
+        'order_number' => $orderNumber,
     ]);
 } else {
+    $conn->rollback();
     echo json_encode([
         'success' => false,
         'message' => 'Failed to create order'

@@ -73,8 +73,13 @@ class AdminDashboardController extends Controller {
 
         $status = $request->get('status', '');
         $search = $request->get('search', '');
+        $ownerId = (int) $request->get('owner_id', 0);
 
         $query = Order::with('owner');
+
+        if ($ownerId > 0) {
+            $query->where('owner_id', $ownerId);
+        }
 
         if (!empty($status)) {
             $query->where('status', $status);
@@ -84,25 +89,44 @@ class AdminDashboardController extends Controller {
             $query->where(function($q) use ($search) {
                 $q->where('customer_name', 'like', "%$search%")
                   ->orWhere('customer_phone', 'like', "%$search%")
-                  ->orWhere('id', 'like', "%$search%");
-            })->orWhereHas('owner', function($q) use ($search) {
-                $q->where('shop_name', 'like', "%$search%")
-                  ->orWhere('name', 'like', "%$search%");
+                  ->orWhere('id', 'like', "%$search%")
+                  ->orWhere('order_number', 'like', "%$search%")
+                  ->orWhereHas('owner', function($q) use ($search) {
+                      $q->where('shop_name', 'like', "%$search%")
+                        ->orWhere('name', 'like', "%$search%");
+                  });
             });
         }
 
         $orders = $query->orderBy('created_at', 'desc')
-                       ->paginate(15);
+                       ->orderBy('id', 'desc')
+                       ->paginate(10);
+
+        $countQuery = Order::query();
+        if ($ownerId > 0) {
+            $countQuery->where('owner_id', $ownerId);
+        }
 
         $counts = [
-            'all'       => Order::count(),
-            'pending'   => Order::where('status', 'pending')->count(),
-            'preparing' => Order::where('status', 'preparing')->count(),
-            'completed' => Order::where('status', 'completed')->count(),
-            'cancelled' => Order::where('status', 'cancelled')->count(),
+            'all'       => (clone $countQuery)->count(),
+            'pending'   => (clone $countQuery)->where('status', 'pending')->count(),
+            'preparing' => (clone $countQuery)->where('status', 'preparing')->count(),
+            'completed' => (clone $countQuery)->where('status', 'completed')->count(),
+            'cancelled' => (clone $countQuery)->where('status', 'cancelled')->count(),
         ];
 
-        return view('admin.orders', compact('orders', 'counts', 'status', 'search'));
+        $owners = Owner::orderBy('shop_name')
+                      ->orderBy('name')
+                      ->get(['id', 'name', 'shop_name']);
+
+        return view('admin.orders', compact(
+            'orders',
+            'counts',
+            'status',
+            'search',
+            'ownerId',
+            'owners'
+        ));
     }
 
     // ── Owners ──

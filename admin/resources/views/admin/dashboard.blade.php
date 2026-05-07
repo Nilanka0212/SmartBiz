@@ -235,7 +235,7 @@
                         <tbody>
                             @forelse($recentOrders as $order)
                             <tr>
-                                <td><strong>#{{ $order->id }}</strong></td>
+                                <td><strong>#{{ $order->order_number ?: str_pad((string) $order->id, 4, '0', STR_PAD_LEFT) }}</strong></td>
                                 <td>
                                     <div class="fw-semibold">
                                         {{ $order->customer_name ?: 'Walk-in' }}

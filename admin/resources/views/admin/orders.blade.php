@@ -11,10 +11,20 @@
     <div class="card stat-card mb-4">
         <div class="card-body p-3">
             <form method="GET" action="{{ route('admin.orders') }}" class="row g-3">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <input type="text" name="search" class="form-control" 
-                           placeholder="Search by order ID, customer name/phone, or shop name"
+                           placeholder="Search by order #, customer, or shop"
                            value="{{ $search }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="owner_id" class="form-select">
+                        <option value="">All Owners</option>
+                        @foreach($owners as $owner)
+                            <option value="{{ $owner->id }}" {{ $ownerId === $owner->id ? 'selected' : '' }}>
+                                {{ $owner->shop_name ?: $owner->name }}{{ $owner->shop_name ? ' - ' . $owner->name : '' }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="col-md-3">
                     <select name="status" class="form-select">
@@ -25,12 +35,19 @@
                         <option value="cancelled" {{ $status === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <button type="submit" class="btn btn-warning w-100">
                         <i class="fas fa-search me-2"></i>Filter
                     </button>
                 </div>
             </form>
+            @if($ownerId || $status || $search)
+                <div class="mt-3">
+                    <a href="{{ route('admin.orders') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-rotate-left me-1"></i>Show latest 10
+                    </a>
+                </div>
+            @endif
         </div>
     </div>
 
@@ -99,7 +116,9 @@
                         @foreach($orders as $order)
                             <tr style="cursor: pointer;" 
                                 onclick="showOrderDetails({{ $order->id }}, @json($order->toArray()))">
-                                <td><strong>#{{ $order->id }}</strong></td>
+                                <td>
+                                    <strong>#{{ $order->order_number ?: str_pad((string) $order->id, 4, '0', STR_PAD_LEFT) }}</strong>
+                                </td>
                                 <td>
                                     <div class="fw-500">
                                         {{ $order->customer_name ?: 'Walk-in' }}
@@ -233,7 +252,7 @@ function showOrderDetails(orderId, orderData) {
         <div class="row mb-3">
             <div class="col-md-6">
                 <h6 class="text-muted">Order Information</h6>
-                <p class="mb-1"><strong>Order ID:</strong> #${orderData.id}</p>
+                <p class="mb-1"><strong>Order #:</strong> #${orderData.order_number || String(orderData.id).padStart(4, '0')}</p>
                 <p class="mb-1"><strong>Status:</strong> 
                     <span class="badge bg-${statusColors[orderData.status]}">${orderData.status.toUpperCase()}</span>
                 </p>
