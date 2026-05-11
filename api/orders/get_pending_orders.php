@@ -32,7 +32,7 @@ $stmt = $conn->prepare("
     FROM orders o
     INNER JOIN owners ow ON ow.id = o.owner_id
     WHERE o.owner_id = ? AND o.status = 'pending'
-    ORDER BY o.created_at DESC
+    ORDER BY o.created_at ASC
 ");
 $stmt->bind_param("i", $owner_id);
 $stmt->execute();

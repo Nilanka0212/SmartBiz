@@ -397,6 +397,61 @@ class _DashboardPageState extends State<DashboardPage> {
     });
   }
 
+  String get _shopQrUrl =>
+      'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${Uri.encodeComponent('${AppConfig.customerShopBaseUrl}?id=${_owner['id']}')}';
+
+  void _showQrDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.qr_code, color: Colors.orange),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Your Shop QR Code',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.network(
+              _shopQrUrl,
+              width: 240,
+              height: 240,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Let customers scan to order',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.black54),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -412,6 +467,11 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
         centerTitle: true,
         actions: [
+          IconButton(
+            tooltip: 'Show QR code',
+            icon: const Icon(Icons.qr_code),
+            onPressed: _showQrDialog,
+          ),
           IconButton(
             icon: Stack(
               clipBehavior: Clip.none,
@@ -820,66 +880,6 @@ class _DashboardPageState extends State<DashboardPage> {
             clipBehavior: Clip.antiAlias,
             child: const OrdersPage(),
           ),
-
-          // ── QR Code Card ──
-Container(
-  width: double.infinity,
-  decoration: BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(16),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.05),
-        blurRadius: 10,
-        offset: const Offset(0, 2),
-      ),
-    ],
-  ),
-  child: Padding(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.purple.shade50,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.qr_code,
-                  color: Colors.purple, size: 22),
-            ),
-            const SizedBox(width: 12),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Your Shop QR Code',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold)),
-                Text('Let customers scan to order',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.black45)),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        // QR Image
-        Image.network(
-          'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${Uri.encodeComponent('${AppConfig.customerShopBaseUrl}?id=${_owner['id']}')}',
-          width: 200, height: 200,
-        ),
-        const SizedBox(height: 8),
-        const Text('Show this QR to your customers',
-            style: TextStyle(
-                color: Colors.black45, fontSize: 12)),
-      ],
-    ),
-  ),
-),
 
           const SizedBox(height: 20),
         ],

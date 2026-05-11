@@ -53,7 +53,7 @@ $stmt = $conn->prepare("
     FROM orders o
     INNER JOIN owners ow ON ow.id = o.owner_id
     WHERE o.owner_id = ? AND o.status = ?
-    ORDER BY created_at DESC
+    ORDER BY created_at ASC
 ");
 $stmt->bind_param("is", $owner_id, $status);
 $stmt->execute();

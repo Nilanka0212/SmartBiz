@@ -85,7 +85,7 @@ class _OrdersPageState extends State<OrdersPage> {
       final aDate = DateTime.tryParse('${a['created_at']}');
       final bDate = DateTime.tryParse('${b['created_at']}');
       if (aDate == null || bDate == null) return 0;
-      return bDate.compareTo(aDate);
+      return aDate.compareTo(bDate);
     });
 
     if (!mounted) return;

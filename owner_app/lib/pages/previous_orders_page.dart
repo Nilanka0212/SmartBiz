@@ -49,10 +49,10 @@ class _PreviousOrdersPageState
     final cancelled = cancelledData['orders']
         as List? ?? [];
 
-    // Merge and sort by date
+    // Merge and sort by date (oldest first)
     final allOrders = [...completed, ...cancelled];
     allOrders.sort((a, b) =>
-        b['created_at'].compareTo(a['created_at']));
+        a['created_at'].compareTo(b['created_at']));
 
     setState(() {
       _orders    = allOrders;

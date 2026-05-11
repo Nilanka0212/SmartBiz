@@ -45,7 +45,7 @@ if ($customerPhone !== '') {
         $params[] = $ownerId;
     }
 
-    $sql .= " ORDER BY o.created_at DESC";
+    $sql .= " ORDER BY o.created_at ASC";
 } else {
     $orderIds = array_values(array_unique(array_filter(array_map(
         'intval',
@@ -80,7 +80,7 @@ if ($customerPhone !== '') {
         $params[] = $ownerId;
     }
 
-    $sql .= " ORDER BY o.created_at DESC";
+    $sql .= " ORDER BY o.created_at ASC";
 }
 
 $stmt = $conn->prepare($sql);
