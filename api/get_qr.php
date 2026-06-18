@@ -10,7 +10,7 @@ if (!$owner_id) {
 }
 
 // Shop URL
-$shopUrl = "http://192.168.1.17/SmartBiz/customer/index.php?id=$owner_id";
+$shopUrl = "http://192.168.8.103/SmartBiz/customer/index.php?id=$owner_id";
 
 // Generate QR using free API
 $qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" . urlencode($shopUrl);

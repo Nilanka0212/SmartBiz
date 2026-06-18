@@ -4,7 +4,7 @@ class AppConfig {
   // flutter run --dart-define=SMARTBIZ_HOST=10.0.2.2
   static const String host = String.fromEnvironment(
     'SMARTBIZ_HOST',
-    defaultValue: '192.168.1.17',
+    defaultValue: '192.168.8.103',
   );
 
   static const String scheme = 'http';
